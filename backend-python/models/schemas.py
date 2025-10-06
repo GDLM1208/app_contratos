@@ -1,0 +1,132 @@
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any
+from datetime import datetime
+
+# ==================== REQUEST MODELS ====================
+
+class MensajeHistorial(BaseModel):
+    """Mensaje individual del historial"""
+    role: str = Field(..., description="Rol del mensaje: 'user' o 'assistant'")
+    content: str = Field(..., description="Contenido del mensaje")
+
+class ChatRequest(BaseModel):
+    """Request para el chatbot"""
+    mensaje: str = Field(..., description="Mensaje del usuario")
+    historial: Optional[List[MensajeHistorial]] = Field(default=None, description="Historial de conversación")
+    contexto_contrato: Optional[Dict[str, Any]] = Field(default=None, description="Contexto del contrato analizado")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "mensaje": "¿Qué cláusulas son problemáticas?",
+                "historial": [
+                    {"role": "user", "content": "Analicé mi contrato"},
+                    {"role": "assistant", "content": "Perfecto, ¿en qué puedo ayudarte?"}
+                ],
+                "contexto_contrato": {
+                    "total_clausulas": 10,
+                    "clausulas_abusivas": 2
+                }
+            }
+        }
+
+class AnalizarContratoRequest(BaseModel):
+    """Request para analizar contrato desde texto"""
+    texto_contrato: str = Field(..., description="Texto completo del contrato")
+    max_tokens_por_clausula: int = Field(default=512, ge=100, le=2048)
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "texto_contrato": "CONTRATO DE PRESTACIÓN DE SERVICIOS...",
+                "max_tokens_por_clausula": 512
+            }
+        }
+
+class ClasificarClausulaRequest(BaseModel):
+    """Request para clasificar una cláusula individual"""
+    texto_clausula: str = Field(..., description="Texto de la cláusula a clasificar")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "texto_clausula": "El contratista se compromete a entregar el producto..."
+            }
+        }
+
+# ==================== RESPONSE MODELS ====================
+
+class ClausulaAnalizada(BaseModel):
+    """Modelo de una cláusula analizada"""
+    numero: int
+    texto: str
+    clasificacion: str
+    confianza: float
+    es_abusiva: bool
+    severidad: Optional[str] = None
+    explicacion: Optional[str] = None
+
+class AnalisisData(BaseModel):
+    """Datos del análisis completo"""
+    clausulas: List[ClausulaAnalizada]
+    total_clausulas: int
+    clausulas_abusivas: int
+    porcentaje_abusivas: float
+    resumen: Optional[Dict[str, Any]] = None
+    tiempo_procesamiento: Optional[float] = None
+
+class AnalisisResponse(BaseModel):
+    """Response del análisis de contrato"""
+    success: bool
+    message: str
+    data: AnalisisData
+    filename: Optional[str] = None
+    timestamp: str
+    pdf_info: Optional[Dict[str, Any]] = None  # Metadata del PDF
+
+class ClasificacionData(BaseModel):
+    """Datos de clasificación de cláusula"""
+    clasificacion: str
+    confianza: float
+    es_abusiva: bool
+    severidad: Optional[str] = None
+    explicacion: Optional[str] = None
+
+class ClasificacionResponse(BaseModel):
+    """Response de clasificación de cláusula"""
+    success: bool
+    message: str
+    data: ClasificacionData
+    timestamp: str
+
+class HealthData(BaseModel):
+    """Datos de health check"""
+    status: str
+    timestamp: str
+    modelo_cargado: bool
+
+class HealthResponse(BaseModel):
+    """Response de health check"""
+    success: bool
+    message: str
+    data: HealthData
+
+class ErrorResponse(BaseModel):
+    """Response de error"""
+    success: bool = False
+    error: str
+
+class InfoModeloData(BaseModel):
+    """Información del modelo"""
+    nombre: str
+    version: str
+    tipo: str
+    clases: List[str]
+    metricas: Optional[Dict[str, float]] = None
+    ultima_actualizacion: Optional[str] = None
+
+class InfoModeloResponse(BaseModel):
+    """Response de información del modelo"""
+    success: bool
+    message: str
+    data: InfoModeloData
