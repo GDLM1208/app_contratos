@@ -1,0 +1,24 @@
+# FastAPI y servidor
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# ML y procesamiento - Transformers
+torch==2.1.1
+transformers==4.35.2
+
+# Procesamiento de PDFs
+PyPDF2==3.0.1
+pdfplumber==0.10.3
+
+# OCR para PDFs escaneados
+pdf2image==1.16.3
+pytesseract==0.3.10
+Pillow==10.1.0
+
+# Utilidades
+python-dotenv==1.0.0
+aiofiles==23.2.1
+
+# Dependencias adicionales
+numpy==1.26.2
