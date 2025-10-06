@@ -38,7 +38,7 @@ app.add_middleware(
 )
 
 try:
-    analizador = AnalizadorContratos(model_path="./modelo-clausulas")
+    analizador = AnalizadorContratos(model_path="./modelo_clausulas")
     chatbot = ChatbotService()
     print("✅ Analizador inicializado correctamente")
 except Exception as e:

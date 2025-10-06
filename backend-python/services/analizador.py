@@ -5,7 +5,7 @@ from collections import Counter, defaultdict
 from filtrado_clasulas import FiltradorClausulasConstructor
 
 class AnalizadorContratos:
-    def __init__(self, model_path="./modelo-clausulas"):
+    def __init__(self, model_path="./modelo_clausulas"):
         """Inicializar el analizador con el modelo personalizado"""
         # print("Cargando modelo y tokenizador...")
         self.model = AutoModelForSequenceClassification.from_pretrained(model_path)
