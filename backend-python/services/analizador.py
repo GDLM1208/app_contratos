@@ -47,10 +47,11 @@ class AnalizadorContratos:
         env_model_path = os.getenv("MODEL_PATH")
         if env_model_path:
             print(f"📍 Usando MODEL_PATH de variable de entorno: {env_model_path}")
-            if os.path.exists(env_model_path):
-                return env_model_path
+            clean_path = os.path.normpath(env_model_path)
+            if os.path.exists(clean_path):
+                return clean_path
             else:
-                print(f"⚠️ Advertencia: MODEL_PATH no existe: {env_model_path}")
+                print(f"⚠️ Advertencia: MODEL_PATH no existe: {clean_path}")
 
         # Prioridad 2: Ruta absoluta
         if os.path.isabs(model_path):
