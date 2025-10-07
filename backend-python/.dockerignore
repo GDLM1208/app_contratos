@@ -48,3 +48,6 @@ docs/
 docker-compose.yml
 Dockerfile
 .dockerignore
+
+# Modelo
+modelo-clausulas/
