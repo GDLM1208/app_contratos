@@ -1,13 +1,17 @@
+import os
 import re
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from collections import Counter, defaultdict
-from filtrado_clasulas import FiltradorClausulasConstructor
+from .filtrado_clasulas import FiltradorClausulasConstructor
 
 class AnalizadorContratos:
     def __init__(self, model_path="./modelo_clausulas"):
         """Inicializar el analizador con el modelo personalizado"""
-        # print("Cargando modelo y tokenizador...")
+
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        model_path = os.path.join(base_path, model_path)
+
         self.model = AutoModelForSequenceClassification.from_pretrained(model_path)
         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
         self.id2label = self.model.config.id2label

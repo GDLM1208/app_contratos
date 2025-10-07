@@ -5,10 +5,10 @@ from .schemas import (
     ClasificacionResponse,
     HealthResponse,
     ErrorResponse,
-    ChatRequest,
-    ChatResponse,
-    ChatHealthResponse
 )
+""" ChatRequest,
+ChatResponse,
+ChatHealthResponse """
 
 __all__ = [
     'AnalizarContratoRequest',
@@ -17,7 +17,7 @@ __all__ = [
     'ClasificacionResponse',
     'HealthResponse',
     'ErrorResponse',
-    'ChatRequest',
+"""     'ChatRequest',
     'ChatResponse',
-    'ChatHealthResponse'
+    'ChatHealthResponse' """
 ]

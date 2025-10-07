@@ -5,6 +5,8 @@ const UploadForm = ({ onExtractedText }: { onExtractedText: (text: string) => vo
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFile(e.target.files?.[0] || null);
     setError(''); // Clear error when new file is selected
@@ -18,7 +20,7 @@ const UploadForm = ({ onExtractedText }: { onExtractedText: (text: string) => vo
     const formData = new FormData();
     formData.append('contrato', file);
     try {
-      const res = await fetch('http://localhost:4000/api/contratos/analizar-archivo', {
+      const res = await fetch(`${API_URL}/analizar-contrato-pdf`, {
         method: 'POST',
         body: formData,
       });

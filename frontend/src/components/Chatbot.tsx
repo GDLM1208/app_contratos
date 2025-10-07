@@ -21,6 +21,8 @@ const Chatbot = () => {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -52,7 +54,7 @@ const Chatbot = () => {
       }));
 
       // Llamar al backend
-      const response = await fetch('http://localhost:4000/api/chat', {
+      const response = await fetch(`${API_URL}/api/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -156,7 +158,7 @@ const Chatbot = () => {
             )}
           </div>
         ))}
-        
+
         {isTyping && (
           <div className="message bot-message">
             <div className="message-avatar">
@@ -173,7 +175,7 @@ const Chatbot = () => {
             </div>
           </div>
         )}
-        
+
         <div ref={messagesEndRef} />
       </div>
 
