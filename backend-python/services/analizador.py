@@ -9,11 +9,10 @@ class AnalizadorContratos:
     def __init__(self, model_path="./modelo_clausulas"):
         """Inicializar el analizador con el modelo personalizado"""
 
-        base_path = os.path.dirname(os.path.abspath(__file__))
-        model_path = os.path.join(base_path, model_path)
+        resolved_model_path = self._resolve_model_path(model_path)
 
-        self.model = AutoModelForSequenceClassification.from_pretrained(model_path)
-        self.tokenizer = AutoTokenizer.from_pretrained(model_path)
+        self.model = AutoModelForSequenceClassification.from_pretrained(resolved_model_path)
+        self.tokenizer = AutoTokenizer.from_pretrained(resolved_model_path)
         self.id2label = self.model.config.id2label
 
         # Definir qué etiquetas representan riesgos (ajusta según tu modelo)
@@ -32,6 +31,49 @@ class AnalizadorContratos:
         }
         # print(f"Modelo cargado. Etiquetas disponibles: {list(self.id2label.values())}")
 
+
+    def _resolve_model_path(self, model_path: str) -> str:
+        """
+        Resolver la ruta del modelo para compatibilidad local y Railway
+
+        Orden de prioridad:
+        1. Variable de entorno MODEL_PATH (Railway)
+        2. Ruta absoluta si se proporciona
+        3. Ruta relativa al archivo analizador.py (local)
+        4. Ruta absoluta en Railway volume (/app/modelo-clausulas)
+        """
+
+        # Prioridad 1: Variable de entorno (Railway)
+        env_model_path = os.getenv("MODEL_PATH")
+        if env_model_path:
+            print(f"📍 Usando MODEL_PATH de variable de entorno: {env_model_path}")
+            if os.path.exists(env_model_path):
+                return env_model_path
+            else:
+                print(f"⚠️ Advertencia: MODEL_PATH no existe: {env_model_path}")
+
+        # Prioridad 2: Ruta absoluta
+        if os.path.isabs(model_path):
+            print(f"📍 Usando ruta absoluta: {model_path}")
+            return model_path
+
+        # Prioridad 3: Ruta relativa al archivo actual (desarrollo local)
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        local_model_path = os.path.join(base_path, model_path)
+
+        if os.path.exists(local_model_path):
+            print(f"📍 Encontrado modelo en ruta local: {local_model_path}")
+            return local_model_path
+
+        # Prioridad 4: Ruta en Railway volume
+        railway_volume_path = f"/app/{model_path}"
+        if os.path.exists(railway_volume_path):
+            print(f"📍 Encontrado modelo en Railway volume: {railway_volume_path}")
+            return railway_volume_path
+
+        # Fallback: retornar ruta local y dejar que falle con mensaje claro
+        print(f"⚠️ No se encontró modelo, usando fallback: {local_model_path}")
+        return local_model_path
 
     def extraer_parrafos_y_fragmentos(self, texto, max_tokens=512):
         """
