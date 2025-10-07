@@ -16,6 +16,10 @@ from models.schemas import (
     ClasificacionResponse,
     HealthResponse
 )
+from dotenv import load_dotenv
+
+# Cargar variables de entorno
+load_dotenv()
 
 # Crear directorios necesarios
 UPLOAD_DIR = Path("uploads")
@@ -130,7 +134,7 @@ async def analizar_contrato_pdf(
         print(f"Procesando archivo: {pdf_file.filename}")
 
         with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
-            pdf_file.save(temp_file.name)
+            temp_file.write(await pdf_file.read())
             temp_path = temp_file.name
 
         with tempfile.NamedTemporaryFile(delete=False, suffix='.txt', mode='w', encoding='utf-8') as temp_txt:
