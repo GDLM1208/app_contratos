@@ -18,7 +18,7 @@ const UploadForm = ({ onExtractedText }: { onExtractedText: (text: string) => vo
     setLoading(true);
     setError('');
     const formData = new FormData();
-    formData.append('contrato', file);
+    formData.append('pdf_file', file);
     try {
       const res = await fetch(`${API_URL}/api/analizar-contrato-pdf`, {
         method: 'POST',
