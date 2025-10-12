@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import UploadForm from './components/UploadForm.tsx'
 import ResultsTable from './components/ResultsTable.tsx'
 import RiskBarChart from './components/RiskBarChart.tsx'
@@ -7,8 +7,33 @@ import Chatbot from './components/Chatbot.tsx'
 type Section = 'analyzer' | 'chatbot' | 'history'
 
 function App() {
-  const [extractedText, setExtractedText] = useState('')
   const [activeSection, setActiveSection] = useState<Section>('analyzer')
+  type Clause = {
+    numero: number;
+    contenido: string;
+    truncado?: boolean;
+    clasificacion?: string;
+    confianza?: number;
+    nivel_riesgo?: string;
+  }
+
+  type AnalysisData = {
+    total_clausulas?: number;
+    clausulas_analizadas?: Clause[];
+    [key: string]: unknown;
+  }
+
+  const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null)
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as AnalysisData
+      setAnalysisData(detail)
+      setActiveSection('analyzer')
+    }
+    window.addEventListener('analysis:completed', handler as EventListener)
+    return () => window.removeEventListener('analysis:completed', handler as EventListener)
+  }, [])
 
   const sections = [
     { id: 'analyzer', name: 'Analizador'},
@@ -28,22 +53,8 @@ function App() {
                 </svg>
                 Subir Documento
               </h2>
-              <UploadForm onExtractedText={setExtractedText} />
+              <UploadForm />
             </div>
-
-            {extractedText && (
-              <div className="section-card">
-                <h2 className="section-header">
-                  <svg className="section-icon" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
-                  </svg>
-                  Texto Extraído del PDF
-                </h2>
-                <div className="extracted-text scrollbar-thin">
-                  {extractedText}
-                </div>
-              </div>
-            )}
 
             <div className="section-card">
               <h2 className="section-header">
@@ -65,7 +76,15 @@ function App() {
                 Detalle de Riesgos Detectados
               </h2>
               <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <ResultsTable />
+                <ResultsTable rows={
+                  analysisData?.clausulas_analizadas?.map((c: Clause) => ({
+                    id: c.numero,
+                    descripcion: c.contenido,
+                    impacto: (c.nivel_riesgo || 'Desconocido'),
+                    mitigacion: '',
+                    comentarios: `Clasificación: ${c.clasificacion || 'N/A'} (Confianza: ${c.confianza ?? 'N/A'})`
+                  })) || undefined
+                } />
               </div>
             </div>
           </>
@@ -110,7 +129,7 @@ function App() {
       {/* Header Moderno */}
       <div className="card" style={{ padding: '2rem', marginBottom: '2rem' }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <h1 style={{ 
+          <h1 style={{
             background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
@@ -127,9 +146,9 @@ function App() {
         </div>
 
         {/* Navegación */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
           gap: '0.5rem',
           flexWrap: 'wrap'
         }}>

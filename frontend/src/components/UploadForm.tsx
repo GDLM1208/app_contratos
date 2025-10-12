@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const UploadForm = ({ onExtractedText }: { onExtractedText: (text: string) => void }) => {
+const UploadForm = () => {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -25,13 +25,15 @@ const UploadForm = ({ onExtractedText }: { onExtractedText: (text: string) => vo
         body: formData,
       });
       const data = await res.json();
-      if (data.success && data.document) {
-        onExtractedText(data.document.extracted_text);
-        // Aquí podrías también pasar el análisis completo si lo necesitas
-        console.log('Análisis completo:', data.analysis);
-      } else {
-        setError(data.error || 'No se pudo procesar el documento.');
-      }
+        if (data.success && data.data) {
+          // Disparar un evento con el resultado del análisis para que el App lo capture
+          const analysis = data.data;
+          console.log('Análisis completo:', analysis);
+          const event = new CustomEvent('analysis:completed', { detail: analysis });
+          window.dispatchEvent(event);
+        } else {
+          setError(data.error || 'No se pudo procesar el documento.');
+        }
     } catch (err) {
       console.log(err);
       setError('Error al subir el archivo. Verifica tu conexión e intenta nuevamente.');

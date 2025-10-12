@@ -14,7 +14,9 @@ const exampleRows = [
   { id: 4, descripcion: 'Cambios en el alcance', impacto: 'Medio', mitigacion: 'Documentar cambios', comentarios: 'Proceso de cambio formal' },
 ];
 
-const getImpactColor = (impacto: string) => {
+type ChipColor = 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'
+
+const getImpactColor = (impacto: string): ChipColor => {
   switch (impacto.toLowerCase()) {
     case 'alto':
       return 'error';
@@ -27,16 +29,17 @@ const getImpactColor = (impacto: string) => {
   }
 };
 
-export default function ResultsTable({ rows = exampleRows }:{ rows?:
-  { 
-    id: number;
-    descripcion: string;
-    impacto: string;
-    mitigacion: string;
-    comentarios: string;
-  }[] }) {
+type RiskRow = {
+  id: number;
+  descripcion: string;
+  impacto: string;
+  mitigacion?: string;
+  comentarios?: string;
+}
+
+export default function ResultsTable({ rows = exampleRows }:{ rows?: RiskRow[] }) {
   return (
-    <TableContainer component={Paper} sx={{ 
+    <TableContainer component={Paper} sx={{
       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)',
       borderRadius: '12px',
       overflow: 'hidden',
@@ -54,9 +57,9 @@ export default function ResultsTable({ rows = exampleRows }:{ rows?:
         </TableHead>
         <TableBody>
           {rows.map((row) => (
-            <TableRow 
+            <TableRow
               key={row.id}
-              sx={{ 
+              sx={{
                 '&:nth-of-type(odd)': { backgroundColor: '#fafafa' },
                 '&:hover': { backgroundColor: '#f0f9ff' },
                 transition: 'background-color 0.2s ease'
@@ -65,13 +68,13 @@ export default function ResultsTable({ rows = exampleRows }:{ rows?:
               <TableCell sx={{ fontWeight: 500, color: '#64748b' }}>
                 #{row.id}
               </TableCell>
-              <TableCell sx={{ color: '#1e293b', fontWeight: 500 }}>
-                {row.descripcion}
+              <TableCell sx={{ color: '#1e293b', fontWeight: 500, maxWidth: 400, whiteSpace: 'normal' }}>
+                {row.descripcion.length > 200 ? row.descripcion.slice(0, 200) + '...' : row.descripcion}
               </TableCell>
               <TableCell>
-                <Chip 
-                  label={row.impacto} 
-                  color={getImpactColor(row.impacto) as any}
+                <Chip
+                  label={row.impacto}
+                  color={getImpactColor(row.impacto)}
                   size="small"
                   sx={{ fontWeight: 600 }}
                 />
@@ -79,7 +82,7 @@ export default function ResultsTable({ rows = exampleRows }:{ rows?:
               <TableCell sx={{ color: '#64748b', maxWidth: 200 }}>
                 {row.mitigacion}
               </TableCell>
-              <TableCell sx={{ color: '#94a3b8', fontSize: '0.875rem', maxWidth: 200 }}>
+              <TableCell sx={{ color: '#94a3b8', fontSize: '0.9rem', maxWidth: 200 }}>
                 {row.comentarios}
               </TableCell>
             </TableRow>
@@ -88,4 +91,4 @@ export default function ResultsTable({ rows = exampleRows }:{ rows?:
       </Table>
     </TableContainer>
   );
-} 
+}

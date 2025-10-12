@@ -59,21 +59,22 @@ class ClasificarClausulaRequest(BaseModel):
 class ClausulaAnalizada(BaseModel):
     """Modelo de una cláusula analizada"""
     numero: int
-    texto: str
+    contenido: str
+    truncado: bool
     clasificacion: str
     confianza: float
-    es_abusiva: bool
-    severidad: Optional[str] = None
-    explicacion: Optional[str] = None
+    nivel_riesgo: Optional[str] = None
+    # Nota: el analizador actual no retorna campos como 'es_abusiva' o 'explicacion'
+    # si más adelante se añaden, se pueden incluir aquí como opcionales.
 
 class AnalisisData(BaseModel):
     """Datos del análisis completo"""
-    clausulas: List[ClausulaAnalizada]
+    # Se ajusta a la salida real de `analizar_contrato_completo`
     total_clausulas: int
-    clausulas_abusivas: int
-    porcentaje_abusivas: float
-    resumen: Optional[Dict[str, Any]] = None
-    tiempo_procesamiento: Optional[float] = None
+    clausulas_analizadas: List[ClausulaAnalizada]
+    riesgos_por_nivel: Optional[Dict[str, List[Dict[str, Any]]]] = None
+    estadisticas_tipos: Optional[Dict[str, int]] = None
+    resumen_riesgos: Optional[Dict[str, Any]] = None
 
 class AnalisisResponse(BaseModel):
     """Response del análisis de contrato"""
@@ -81,14 +82,20 @@ class AnalisisResponse(BaseModel):
     message: str
     data: AnalisisData
     filename: Optional[str] = None
+    duration_seconds: Optional[float] = None
     timestamp: str
     pdf_info: Optional[Dict[str, Any]] = None  # Metadata del PDF
 
 class ClasificacionData(BaseModel):
     """Datos de clasificación de cláusula"""
-    clasificacion: str
+    # El método `clasificar_clausula` devuelve actualmente:
+    # {'etiqueta': ..., 'confianza': ..., 'probabilidades': {...}}
+    etiqueta: str
     confianza: float
-    es_abusiva: bool
+    probabilidades: Optional[Dict[str, float]] = None
+    # Campos opcionales para compatibilidad con futuros cambios
+    clasificacion: Optional[str] = None
+    es_abusiva: Optional[bool] = None
     severidad: Optional[str] = None
     explicacion: Optional[str] = None
 

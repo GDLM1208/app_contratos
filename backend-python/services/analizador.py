@@ -3,12 +3,25 @@ import re
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from collections import Counter, defaultdict
+from functools import lru_cache
 from .filtrado_clasulas import FiltradorClausulasConstructor
 
 class AnalizadorContratos:
+    _instance = None
+    _model = None
+    _tokenizer = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(AnalizadorContratos, cls).__new__(cls)
+        return cls._instance
+
     def __init__(self, model_path="./modelo_clausulas"):
         """Inicializar el analizador con el modelo personalizado"""
+        if self._model is None:
+            self._load_model(model_path)
 
+    def _load_model(self, model_path="./modelo_clausulas"):
         resolved_model_path = self._resolve_model_path(model_path)
 
         self.model = AutoModelForSequenceClassification.from_pretrained(resolved_model_path)
@@ -29,8 +42,6 @@ class AnalizadorContratos:
             'Legal o Referencia Normativa': 'medio',
             'Temporal': 'medio',
         }
-        # print(f"Modelo cargado. Etiquetas disponibles: {list(self.id2label.values())}")
-
 
     def _resolve_model_path(self, model_path: str) -> str:
         """
@@ -176,6 +187,8 @@ class AnalizadorContratos:
                 'clasificacion': clasificacion['etiqueta'],
                 'confianza': round(clasificacion['confianza'], 3)
             }
+
+            if resultado_clausula['confianza'] < 0.95: continue
 
             # Identificar nivel de riesgo
             etiqueta = clasificacion['etiqueta']

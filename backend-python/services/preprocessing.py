@@ -27,13 +27,6 @@ def process_page(page, page_num):
 
 def extract_pdf_to_txt(pdf_path, output_txt):
     total_pages = fitz.open(pdf_path).page_count
-    tasks = [(pdf_path, i) for i in range(total_pages)]
-    try:
-        pytesseract.get_tesseract_version()  # Verifica que Tesseract esté correctamente instalado
-        print("✅ Tesseract instalado correctamente")
-    except pytesseract.TesseractNotFoundError:
-        print("❌ Tesseract no encontrado. Asegúrate de que esté instalado y en el PATH.")
-        raise Exception("Tesseract OCR no está instalado")
 
     """ with Pool(min(cpu_count(), 3)) as pool:
         results = pool.map(process_page, tasks) """
