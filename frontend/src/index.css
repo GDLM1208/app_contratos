@@ -390,6 +390,10 @@
     font-size: 0.875rem;
   }
 
+  .user-message .message-text {
+    color: white;
+  }
+
   .message-time {
     font-size: 0.75rem;
     opacity: 0.7;
@@ -580,23 +584,23 @@
     padding: 0.5rem 1rem;
     font-size: 0.75rem;
   }
-  
+
   .section-card {
     padding: 1.5rem;
   }
-  
+
   .upload-area {
     padding: 2rem 1rem;
   }
-  
+
   .placeholder-icon {
     font-size: 3rem;
   }
-  
+
   .placeholder-title {
     font-size: 1.25rem;
   }
-  
+
   .placeholder-description {
     font-size: 1rem;
   }
@@ -619,11 +623,11 @@
     padding: 0.5rem 0.75rem;
     font-size: 0.75rem;
   }
-  
+
   .section-card {
     padding: 1rem;
   }
-  
+
   .upload-area {
     padding: 1.5rem 1rem;
   }

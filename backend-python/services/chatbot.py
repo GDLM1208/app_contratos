@@ -34,7 +34,7 @@ class ChatbotService:
     async def chat(
         self,
         mensaje: str,
-        historial: Optional[List[Dict[str, str]]] = None,
+        historial: Optional[List[Any]] = None,
         contexto_contrato: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
@@ -52,7 +52,7 @@ class ChatbotService:
             raise Exception("Servicio de chatbot no disponible. Configure OPENAI_API_KEY")
 
         try:
-            # Construir mensajes
+            # Construir mensajes (historial puede venir como dicts o como Pydantic models)
             messages = self._construir_mensajes(mensaje, historial, contexto_contrato)
 
             # Llamar a OpenAI
@@ -88,7 +88,7 @@ class ChatbotService:
     async def chat_streaming(
         self,
         mensaje: str,
-        historial: Optional[List[Dict[str, str]]] = None,
+        historial: Optional[List[Any]] = None,
         contexto_contrato: Optional[Dict[str, Any]] = None
     ):
         """
@@ -123,7 +123,7 @@ class ChatbotService:
     def _construir_mensajes(
         self,
         mensaje: str,
-        historial: Optional[List[Dict[str, str]]],
+        historial: Optional[List[Any]],
         contexto_contrato: Optional[Dict[str, Any]]
     ) -> List[Dict[str, str]]:
         """Construir lista de mensajes para OpenAI"""
@@ -145,11 +145,19 @@ class ChatbotService:
             # Limitar historial a últimos N mensajes para no exceder tokens
             max_historial = 10
             historial_reciente = historial[-max_historial:] if len(historial) > max_historial else historial
-
+            # Aceptar tanto dicts como objetos (p. ej. Pydantic MensajeHistorial)
             for msg in historial_reciente:
+                if isinstance(msg, dict):
+                    role = msg.get("role", "user")
+                    content = msg.get("content", "")
+                else:
+                    # objeto con atributos role/content (pydantic model)
+                    role = getattr(msg, "role", "user")
+                    content = getattr(msg, "content", "")
+
                 messages.append({
-                    "role": msg.get("role", "user"),
-                    "content": msg.get("content", "")
+                    "role": role,
+                    "content": content
                 })
 
         # Agregar mensaje actual

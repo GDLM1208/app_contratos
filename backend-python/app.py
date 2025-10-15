@@ -15,7 +15,8 @@ from models.schemas import (
     ClasificarClausulaRequest,
     AnalisisResponse,
     ClasificacionResponse,
-    HealthResponse
+    HealthResponse,
+    ChatRequest
 )
 from dotenv import load_dotenv
 
@@ -264,7 +265,7 @@ async def obtener_historial():
     }
 
 @app.post("/api/chat")
-async def chat_endpoint(message: str = Form(...)):
+async def chat_endpoint(request: ChatRequest):
     """
     Endpoint para interactuar con el chatbot
 
@@ -273,13 +274,17 @@ async def chat_endpoint(message: str = Form(...)):
         - message: mensaje del usuario
     """
     try:
-        if not message or message.strip() == "":
+        if not request.mensaje or request.mensaje.strip() == "":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="El mensaje es requerido"
             )
 
-        respuesta = await chatbot.chat(message)
+        respuesta = await chatbot.chat(
+            request.mensaje,
+            request.historial,
+            request.contexto_contrato
+        )
 
         return {
             "success": True,

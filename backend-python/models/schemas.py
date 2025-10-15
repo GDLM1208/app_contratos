@@ -64,6 +64,7 @@ class ClausulaAnalizada(BaseModel):
     clasificacion: str
     confianza: float
     nivel_riesgo: Optional[str] = None
+    matched_phrases: Optional[List[Dict[str, Any]]] = None
     # Nota: el analizador actual no retorna campos como 'es_abusiva' o 'explicacion'
     # si más adelante se añaden, se pueden incluir aquí como opcionales.
 
@@ -75,6 +76,7 @@ class AnalisisData(BaseModel):
     riesgos_por_nivel: Optional[Dict[str, List[Dict[str, Any]]]] = None
     estadisticas_tipos: Optional[Dict[str, int]] = None
     resumen_riesgos: Optional[Dict[str, Any]] = None
+    wordcloud: Optional[List[Dict[str, Any]]] = None
 
 class AnalisisResponse(BaseModel):
     """Response del análisis de contrato"""

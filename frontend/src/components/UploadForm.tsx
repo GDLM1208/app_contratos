@@ -17,6 +17,10 @@ const UploadForm = () => {
     if (!file) return;
     setLoading(true);
     setError('');
+
+    // Disparar evento de inicio de análisis para resetear estado previo
+    window.dispatchEvent(new CustomEvent('analysis:started'));
+
     const formData = new FormData();
     formData.append('pdf_file', file);
     try {
@@ -26,10 +30,9 @@ const UploadForm = () => {
       });
       const data = await res.json();
         if (data.success && data.data) {
-          // Disparar un evento con el resultado del análisis para que el App lo capture
-          const analysis = data.data;
-          console.log('Análisis completo:', analysis);
-          const event = new CustomEvent('analysis:completed', { detail: analysis });
+          // Disparar un evento con el resultado completo del análisis para que el App lo capture
+          console.log('Análisis completo:', data);
+          const event = new CustomEvent('analysis:completed', { detail: data });
           window.dispatchEvent(event);
         } else {
           setError(data.error || 'No se pudo procesar el documento.');

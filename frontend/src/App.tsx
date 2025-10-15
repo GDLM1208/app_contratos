@@ -15,24 +15,43 @@ function App() {
     clasificacion?: string;
     confianza?: number;
     nivel_riesgo?: string;
+    matched_phrases?: Array<{phrase: string; score: number; method: string}>;
   }
 
   type AnalysisData = {
     total_clausulas?: number;
     clausulas_analizadas?: Clause[];
+    wordcloud?: Array<{text: string; value: number}>;
     [key: string]: unknown;
   }
 
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null)
+  const [documentInfo, setDocumentInfo] = useState<{filename?: string; timestamp?: string} | null>(null)
 
   useEffect(() => {
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail as AnalysisData
+      const event = e as CustomEvent
+      const detail = event.detail.data as AnalysisData
+      const filename = event.detail.filename
+      const timestamp = event.detail.timestamp
+
       setAnalysisData(detail)
+      setDocumentInfo({ filename, timestamp })
       setActiveSection('analyzer')
     }
+
+    // Handler para reset cuando se inicie un nuevo análisis
+    const resetHandler = () => {
+      setAnalysisData(null)
+      setDocumentInfo(null)
+    }
+
     window.addEventListener('analysis:completed', handler as EventListener)
-    return () => window.removeEventListener('analysis:completed', handler as EventListener)
+    window.addEventListener('analysis:started', resetHandler as EventListener)
+    return () => {
+      window.removeEventListener('analysis:completed', handler as EventListener)
+      window.removeEventListener('analysis:started', resetHandler as EventListener)
+    }
   }, [])
 
   const sections = [
@@ -54,6 +73,31 @@ function App() {
                 Subir Documento
               </h2>
               <UploadForm />
+
+              {/* Mostrar información del análisis actual si existe */}
+              {analysisData && documentInfo && (
+                <div style={{
+                  marginTop: '1rem',
+                  padding: '1rem',
+                  backgroundColor: '#f0f9ff',
+                  borderRadius: '8px',
+                  border: '1px solid #e0f2fe'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20" style={{ color: '#0284c7' }}>
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span style={{ fontWeight: 600, color: '#0284c7', fontSize: '0.875rem' }}>
+                      Análisis completado
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.875rem', color: '#64748b' }}>
+                    <strong>Archivo:</strong> {documentInfo.filename}<br/>
+                    <strong>Cláusulas analizadas:</strong> {analysisData.total_clausulas}<br/>
+                    <strong>Fecha:</strong> {documentInfo.timestamp ? new Date(documentInfo.timestamp).toLocaleString() : 'N/A'}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="section-card">
@@ -81,7 +125,7 @@ function App() {
                     id: c.numero,
                     descripcion: c.contenido,
                     impacto: (c.nivel_riesgo || 'Desconocido'),
-                    mitigacion: '',
+                    etiquetas: c.matched_phrases?.map(mp => mp.phrase).join(', ') || '',
                     comentarios: `Clasificación: ${c.clasificacion || 'N/A'} (Confianza: ${c.confianza ?? 'N/A'})`
                   })) || undefined
                 } />

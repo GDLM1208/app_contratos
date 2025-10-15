@@ -8,10 +8,10 @@ import Paper from '@mui/material/Paper';
 import { Chip } from '@mui/material';
 
 const exampleRows = [
-  { id: 1, descripcion: 'Cláusula de daños y perjuicios', impacto: 'Alto', mitigacion: 'Negociar límites', comentarios: 'Revisar con abogado' },
-  { id: 2, descripcion: 'Penalidades por retraso', impacto: 'Medio', mitigacion: 'Ajustar cronograma', comentarios: 'Verificar plazos' },
-  { id: 3, descripcion: 'Responsabilidad por defectos', impacto: 'Alto', mitigacion: 'Asegurar calidad', comentarios: 'Implementar controles' },
-  { id: 4, descripcion: 'Cambios en el alcance', impacto: 'Medio', mitigacion: 'Documentar cambios', comentarios: 'Proceso de cambio formal' },
+  { id: 1, descripcion: 'Cláusula de daños y perjuicios', impacto: 'Alto', etiquetas: 'Penalidad, Multa', comentarios: 'Revisar con abogado' },
+  { id: 2, descripcion: 'Penalidades por retraso', impacto: 'Medio', etiquetas: 'Penalidad por retraso, Mora', comentarios: 'Verificar plazos' },
+  { id: 3, descripcion: 'Responsabilidad por defectos', impacto: 'Alto', etiquetas: 'Responsabilidad civil, Defectos', comentarios: 'Implementar controles' },
+  { id: 4, descripcion: 'Cambios en el alcance', impacto: 'Medio', etiquetas: 'Cambio de alcance, Variación', comentarios: 'Proceso de cambio formal' },
 ];
 
 type ChipColor = 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'
@@ -33,7 +33,7 @@ type RiskRow = {
   id: number;
   descripcion: string;
   impacto: string;
-  mitigacion?: string;
+  etiquetas?: string;
   comentarios?: string;
 }
 
@@ -51,7 +51,7 @@ export default function ResultsTable({ rows = exampleRows }:{ rows?: RiskRow[] }
             <TableCell sx={{ fontWeight: 600, color: '#1e293b' }}>ID</TableCell>
             <TableCell sx={{ fontWeight: 600, color: '#1e293b' }}>Descripción del Riesgo</TableCell>
             <TableCell sx={{ fontWeight: 600, color: '#1e293b' }}>Impacto</TableCell>
-            <TableCell sx={{ fontWeight: 600, color: '#1e293b' }}>Estrategias de Mitigación</TableCell>
+            <TableCell sx={{ fontWeight: 600, color: '#1e293b' }}>Etiquetas</TableCell>
             <TableCell sx={{ fontWeight: 600, color: '#1e293b' }}>Comentarios</TableCell>
           </TableRow>
         </TableHead>
@@ -80,7 +80,7 @@ export default function ResultsTable({ rows = exampleRows }:{ rows?: RiskRow[] }
                 />
               </TableCell>
               <TableCell sx={{ color: '#64748b', maxWidth: 200 }}>
-                {row.mitigacion}
+                {row.etiquetas}
               </TableCell>
               <TableCell sx={{ color: '#94a3b8', fontSize: '0.9rem', maxWidth: 200 }}>
                 {row.comentarios}

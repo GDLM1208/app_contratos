@@ -60,8 +60,8 @@ const Chatbot = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: currentInput,
-          conversationHistory: conversationHistory
+          mensaje: currentInput,
+          historial: conversationHistory
         }),
       });
 
