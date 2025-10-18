@@ -428,11 +428,6 @@ async def recuperar_analisis(
                 detail=f"Análisis con ID {analisis_id} no encontrado"
             )
 
-        # Debug: imprimir la estructura del resultado
-        print(f"🔍 DEBUG - Estructura del resultado para ID {analisis_id}:")
-        import json
-        print(json.dumps(resultado, indent=2, ensure_ascii=False, default=str))
-
         return {
             "success": True,
             "message": "Análisis recuperado exitosamente",
