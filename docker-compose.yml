@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # Backend - API Python FastAPI
+  backend:
+    build:
+      context: ./deploy/backend-python
+      dockerfile: Dockerfile
+    container_name: contratos_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - ENV=production
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:80,http://frontend
+      - DATABASE_URL=sqlite:///./app_data/contratos.db
+    volumes:
+      # Persistir base de datos
+      - ./data:/app/app_data
+      # Persistir uploads
+      - ./uploads:/app/uploads
+    networks:
+      - contratos_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend - React + TypeScript + Vite
+  frontend:
+    build:
+      context: ./deploy/frontend
+      dockerfile: Dockerfile
+    container_name: contratos_frontend
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - contratos_network
+    restart: unless-stopped
+
+networks:
+  contratos_network:
+    driver: bridge
+
+volumes:
+  app_data:
+    driver: local
