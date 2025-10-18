@@ -5,7 +5,6 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
-import { Chip } from '@mui/material';
 
 const exampleRows = [
   { id: 1, descripcion: 'Cláusula de daños y perjuicios', impacto: 'Alto', etiquetas: 'Penalidad, Multa', comentarios: 'Revisar con abogado' },
@@ -14,7 +13,7 @@ const exampleRows = [
   { id: 4, descripcion: 'Cambios en el alcance', impacto: 'Medio', etiquetas: 'Cambio de alcance, Variación', comentarios: 'Proceso de cambio formal' },
 ];
 
-type ChipColor = 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'
+/* type ChipColor = 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'
 
 const getImpactColor = (impacto: string): ChipColor => {
   switch (impacto.toLowerCase()) {
@@ -27,7 +26,7 @@ const getImpactColor = (impacto: string): ChipColor => {
     default:
       return 'default';
   }
-};
+}; */
 
 type RiskRow = {
   id: number;
@@ -48,15 +47,14 @@ export default function ResultsTable({ rows = exampleRows }:{ rows?: RiskRow[] }
       <Table sx={{ minWidth: 650 }}>
         <TableHead>
           <TableRow sx={{ backgroundColor: '#f8fafc' }}>
-            <TableCell sx={{ fontWeight: 600, color: '#1e293b' }}>ID</TableCell>
-            <TableCell sx={{ fontWeight: 600, color: '#1e293b' }}>Descripción del Riesgo</TableCell>
-            <TableCell sx={{ fontWeight: 600, color: '#1e293b' }}>Impacto</TableCell>
-            <TableCell sx={{ fontWeight: 600, color: '#1e293b' }}>Etiquetas</TableCell>
-            <TableCell sx={{ fontWeight: 600, color: '#1e293b' }}>Comentarios</TableCell>
+            <TableCell sx={{ fontWeight: 700, color: '#1e293b' }}>ID</TableCell>
+            <TableCell sx={{ fontWeight: 700, color: '#1e293b' }}>Etiquetas</TableCell>
+            <TableCell sx={{ fontWeight: 700, color: '#1e293b' }}>Categoría de cláusula</TableCell>
+            <TableCell sx={{ fontWeight: 700, color: '#1e293b' }}>Sentencia</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
-          {rows.map((row) => (
+          {rows.map((row, index) => (
             <TableRow
               key={row.id}
               sx={{
@@ -66,25 +64,25 @@ export default function ResultsTable({ rows = exampleRows }:{ rows?: RiskRow[] }
               }}
             >
               <TableCell sx={{ fontWeight: 500, color: '#64748b' }}>
-                #{row.id}
+                {index + 1}
+              </TableCell>
+              <TableCell sx={{ color: '#1e293b', maxWidth: 200 }}>
+                {row.etiquetas}
+              </TableCell>
+              <TableCell sx={{ color: '#1e293b', fontSize: '0.9rem', maxWidth: 200 }}>
+                {row.comentarios}
               </TableCell>
               <TableCell sx={{ color: '#1e293b', fontWeight: 500, maxWidth: 400, whiteSpace: 'normal' }}>
                 {row.descripcion.length > 200 ? row.descripcion.slice(0, 200) + '...' : row.descripcion}
               </TableCell>
-              <TableCell>
+              {/* <TableCell>
                 <Chip
                   label={row.impacto}
                   color={getImpactColor(row.impacto)}
                   size="small"
                   sx={{ fontWeight: 600 }}
                 />
-              </TableCell>
-              <TableCell sx={{ color: '#64748b', maxWidth: 200 }}>
-                {row.etiquetas}
-              </TableCell>
-              <TableCell sx={{ color: '#94a3b8', fontSize: '0.9rem', maxWidth: 200 }}>
-                {row.comentarios}
-              </TableCell>
+              </TableCell> */}
             </TableRow>
           ))}
         </TableBody>

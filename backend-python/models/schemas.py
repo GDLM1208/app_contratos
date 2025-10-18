@@ -56,6 +56,21 @@ class ClasificarClausulaRequest(BaseModel):
 
 # ==================== RESPONSE MODELS ====================
 
+class ChatData(BaseModel):
+    """Datos de respuesta del chatbot"""
+    respuesta: str
+    modelo: str
+    tokens_usados: Optional[Dict[str, int]] = None
+    tiempo_respuesta: Optional[float] = None
+    finish_reason: Optional[str] = None
+
+class ChatResponse(BaseModel):
+    """Response del chatbot"""
+    success: bool
+    message: str  # Para compatibilidad con frontend (contiene la respuesta)
+    data: ChatData
+    timestamp: str
+
 class ClausulaAnalizada(BaseModel):
     """Modelo de una cláusula analizada"""
     numero: int
@@ -68,6 +83,16 @@ class ClausulaAnalizada(BaseModel):
     # Nota: el analizador actual no retorna campos como 'es_abusiva' o 'explicacion'
     # si más adelante se añaden, se pueden incluir aquí como opcionales.
 
+class RiskMatrixRow(BaseModel):
+    """Fila de la matriz de riesgos"""
+    id: str
+    categoria: str
+    probabilidad: int
+    impacto: str
+    riesgo_afectacion: List[str]
+    mitigacion: str
+    responsable: str
+
 class AnalisisData(BaseModel):
     """Datos del análisis completo"""
     # Se ajusta a la salida real de `analizar_contrato_completo`
@@ -77,6 +102,7 @@ class AnalisisData(BaseModel):
     estadisticas_tipos: Optional[Dict[str, int]] = None
     resumen_riesgos: Optional[Dict[str, Any]] = None
     wordcloud: Optional[List[Dict[str, Any]]] = None
+    risk_matrix: Optional[List[RiskMatrixRow]] = None
 
 class AnalisisResponse(BaseModel):
     """Response del análisis de contrato"""
@@ -124,6 +150,53 @@ class ErrorResponse(BaseModel):
     """Response de error"""
     success: bool = False
     error: str
+
+# ==================== HISTORIAL MODELS ====================
+
+class AnalisisHistorialItem(BaseModel):
+    """Item del historial de análisis"""
+    id: int
+    filename: str
+    timestamp: str
+    total_clausulas: int
+    riesgos_alto: int
+    riesgos_medio: int
+    riesgos_bajo: int
+    modo_utilizado: Optional[str] = None
+
+class HistorialResponse(BaseModel):
+    """Response del historial de análisis"""
+    success: bool
+    message: str
+    data: List[AnalisisHistorialItem]
+    total: int
+    timestamp: str
+
+class RecuperarAnalisisResponse(BaseModel):
+    """Response para recuperar análisis específico"""
+    success: bool
+    message: str
+    data: AnalisisData
+    timestamp: str
+
+class ActualizarResponsableRequest(BaseModel):
+    """Request para actualizar responsable"""
+    matrix_id: str = Field(..., description="ID de la matriz (ej: '1.a')")
+    responsable: str = Field(..., description="Nombre del responsable")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "matrix_id": "1.a",
+                "responsable": "Juan Pérez"
+            }
+        }
+
+class ActualizarResponsableResponse(BaseModel):
+    """Response de actualización de responsable"""
+    success: bool
+    message: str
+    timestamp: str
 
 class InfoModeloData(BaseModel):
     """Información del modelo"""

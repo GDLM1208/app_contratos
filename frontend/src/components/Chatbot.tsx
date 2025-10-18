@@ -65,28 +65,51 @@ const Chatbot = () => {
         }),
       });
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
 
-      if (data.success) {
+      const data = await response.json();
+      console.log('📋 Respuesta completa del backend:', data);
+
+      if (data.success && data.message) {
         const botMessage: Message = {
           id: (Date.now() + 1).toString(),
           text: data.message,
           sender: 'bot',
           timestamp: new Date()
         };
+
+        // Log adicional para debug
+        console.log('✅ Mensaje del bot creado:', botMessage);
+        console.log('📊 Metadata adicional:', data.data);
+
         setMessages(prev => [...prev, botMessage]);
       } else {
-        throw new Error(data.error || 'Error en el chatbot');
+        throw new Error(data.error || 'Respuesta inválida del servidor');
       }
     } catch (error) {
-      console.error('Error en chatbot:', error);
-      const errorMessage: Message = {
+      console.error('❌ Error en chatbot:', error);
+
+      let errorMessage = 'Lo siento, hubo un error al procesar tu mensaje.';
+
+      if (error instanceof Error) {
+        if (error.message.includes('HTTP 503')) {
+          errorMessage = 'El servicio de chatbot no está disponible. Por favor, verifique la configuración.';
+        } else if (error.message.includes('HTTP 400')) {
+          errorMessage = 'Mensaje inválido. Por favor, intenta con un mensaje diferente.';
+        } else if (error.message.includes('HTTP')) {
+          errorMessage = `Error del servidor: ${error.message}`;
+        }
+      }
+
+      const errorMsg: Message = {
         id: (Date.now() + 1).toString(),
-        text: 'Lo siento, hubo un error al procesar tu mensaje. Por favor, intenta nuevamente.',
+        text: errorMessage + ' Por favor, intenta nuevamente.',
         sender: 'bot',
         timestamp: new Date()
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, errorMsg]);
     } finally {
       setIsTyping(false);
     }

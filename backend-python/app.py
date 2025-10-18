@@ -1,22 +1,30 @@
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException, status
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
+from sqlalchemy.orm import Session
 import os
 import tempfile
 
 from services.analizador import AnalizadorContratos
 from services.chatbot import ChatbotService
+from services.database_service import DatabaseService
 from services.preprocessing import extract_pdf_to_txt
+from config.database import get_db, init_database
 from models.schemas import (
     AnalizarContratoRequest,
     ClasificarClausulaRequest,
     AnalisisResponse,
     ClasificacionResponse,
     HealthResponse,
-    ChatRequest
+    ChatRequest,
+    ChatResponse,
+    HistorialResponse,
+    RecuperarAnalisisResponse,
+    ActualizarResponsableRequest,
+    ActualizarResponsableResponse
 )
 from dotenv import load_dotenv
 
@@ -29,14 +37,20 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 
 analizador = None
 chatbot = None
+db_service = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global analizador, chatbot
+    global analizador, chatbot, db_service
     try:
+        # Inicializar base de datos
+        if not init_database():
+            raise Exception("No se pudo inicializar la base de datos")
+
         analizador = AnalizadorContratos(model_path="modelo_clausulas/")
         chatbot = ChatbotService()
-        print("✅ Analizador inicializado correctamente")
+        db_service = DatabaseService()
+        print("✅ Servicios inicializados correctamente")
     except Exception as e:
         print(f"❌ Error al inicializar: {e}")
         raise
@@ -46,6 +60,7 @@ async def lifespan(app: FastAPI):
     print("🔄 Limpiando recursos...")
     del analizador
     del chatbot
+    del db_service
 
 # Inicializar FastAPI
 app = FastAPI(
@@ -127,9 +142,10 @@ async def analizar_contrato(request: AnalizarContratoRequest):
 @app.post("/api/analizar-contrato-pdf")
 async def analizar_contrato_pdf(
     pdf_file: UploadFile = File(...),
-    max_tokens_por_clausula: int = Form(512)
+    max_tokens_por_clausula: int = Form(512),
+    db: Session = Depends(get_db)
 ):
-    """
+    """b
     Analizar contrato desde archivo PDF
 
     POST /api/analizar-contrato-pdf
@@ -192,6 +208,18 @@ async def analizar_contrato_pdf(
                 'error': resultado['error'],
                 'success': False
             }
+
+        # Guardar automáticamente en base de datos
+        try:
+            analisis_id = db_service.guardar_analisis_completo(
+                db=db,
+                filename=pdf_file.filename,
+                resultado_analisis=resultado
+            )
+            print(f"📄 Análisis auto-guardado con ID: {analisis_id}")
+        except Exception as e:
+            print(f"⚠️ No se pudo guardar automáticamente: {e}")
+            # Continuar sin fallar si no se puede guardar
 
         return {
             "success": True,
@@ -264,20 +292,29 @@ async def obtener_historial():
         }
     }
 
-@app.post("/api/chat")
+@app.post("/api/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """
     Endpoint para interactuar con el chatbot
 
     POST /api/chat
-    Form-data:
-        - message: mensaje del usuario
+    Body: {
+        "mensaje": "pregunta del usuario",
+        "historial": [{"role": "user", "content": "..."}],
+        "contexto_contrato": {...}
+    }
     """
     try:
         if not request.mensaje or request.mensaje.strip() == "":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="El mensaje es requerido"
+            )
+
+        if not chatbot.disponible():
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Servicio de chatbot no disponible. Verifique la configuración de OPENAI_API_KEY"
             )
 
         respuesta = await chatbot.chat(
@@ -288,19 +325,172 @@ async def chat_endpoint(request: ChatRequest):
 
         return {
             "success": True,
-            "message": "Respuesta generada exitosamente",
+            "message": respuesta["respuesta"],  # Para compatibilidad con frontend
             "data": {
-                "respuesta": respuesta.respuesta,
-                "modelo": respuesta.modelo,
+                "respuesta": respuesta["respuesta"],
+                "modelo": respuesta["modelo"],
+                "tokens_usados": respuesta.get("tokens_usados"),
+                "tiempo_respuesta": respuesta.get("tiempo_respuesta"),
+                "finish_reason": respuesta.get("finish_reason")
             },
             "timestamp": datetime.now().isoformat()
         }
 
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
     except Exception as e:
-        print(f"Error en chat_endpoint: {str(e)}")
+        print(f"❌ Error en chat_endpoint: {str(e)}")
+        print(f"📝 Tipo de error: {type(e).__name__}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
+            detail=f"Error interno del servidor: {str(e)}"
+        )
+
+# ==================== ENDPOINTS DE HISTORIAL ====================
+
+@app.post("/api/analisis/save")
+async def guardar_analisis(
+    filename: str,
+    resultado_analisis: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Guardar análisis completo en base de datos
+
+    Este endpoint se llama automáticamente después de completar un análisis
+    """
+    try:
+        analisis_id = db_service.guardar_analisis_completo(
+            db=db,
+            filename=filename,
+            resultado_analisis=resultado_analisis
+        )
+
+        return {
+            "success": True,
+            "message": "Análisis guardado exitosamente",
+            "data": {"analisis_id": analisis_id},
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        print(f"❌ Error guardando análisis: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error guardando análisis: {str(e)}"
+        )
+
+@app.get("/api/analisis/historial", response_model=HistorialResponse)
+async def obtener_historial(
+    limit: int = 50,
+    db: Session = Depends(get_db)
+):
+    """
+    Obtener historial de análisis realizados
+
+    GET /api/analisis/historial?limit=50
+    """
+    try:
+        historial = db_service.obtener_historial_analisis(db=db, limit=limit)
+
+        return {
+            "success": True,
+            "message": "Historial obtenido exitosamente",
+            "data": historial,
+            "total": len(historial),
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except Exception as e:
+        print(f"❌ Error obteniendo historial: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error obteniendo historial: {str(e)}"
+        )
+
+@app.get("/api/analisis/{analisis_id}", response_model=RecuperarAnalisisResponse)
+async def recuperar_analisis(
+    analisis_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Recuperar análisis específico por ID
+
+    GET /api/analisis/123
+    """
+    try:
+        resultado = db_service.obtener_analisis_por_id(db=db, analisis_id=analisis_id)
+
+        if not resultado:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Análisis con ID {analisis_id} no encontrado"
+            )
+
+        # Debug: imprimir la estructura del resultado
+        print(f"🔍 DEBUG - Estructura del resultado para ID {analisis_id}:")
+        import json
+        print(json.dumps(resultado, indent=2, ensure_ascii=False, default=str))
+
+        return {
+            "success": True,
+            "message": "Análisis recuperado exitosamente",
+            "data": resultado,
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error recuperando análisis {analisis_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error recuperando análisis: {str(e)}"
+        )
+
+@app.put("/api/analisis/{analisis_id}/responsable", response_model=ActualizarResponsableResponse)
+async def actualizar_responsable(
+    analisis_id: int,
+    request: ActualizarResponsableRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Actualizar responsable en matriz de riesgos
+
+    PUT /api/analisis/123/responsable
+    Body: {
+        "matrix_id": "1.a",
+        "responsable": "Juan Pérez"
+    }
+    """
+    try:
+        success = db_service.actualizar_responsable_matriz(
+            db=db,
+            analisis_id=analisis_id,
+            matrix_id=request.matrix_id,
+            responsable=request.responsable
+        )
+
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No se encontró la fila {request.matrix_id} en el análisis {analisis_id}"
+            )
+
+        return {
+            "success": True,
+            "message": f"Responsable actualizado para {request.matrix_id}",
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error actualizando responsable: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error actualizando responsable: {str(e)}"
         )
 
 # Manejo de errores global

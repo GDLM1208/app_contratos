@@ -2,7 +2,11 @@ import { useState, useEffect } from 'react'
 import UploadForm from './components/UploadForm.tsx'
 import ResultsTable from './components/ResultsTable.tsx'
 import RiskBarChart from './components/RiskBarChart.tsx'
+import WordCloudChart from './components/WordCloudChart.tsx'
+import RiskMatrixTable from './components/RiskMatrixTable.tsx'
 import Chatbot from './components/Chatbot.tsx'
+import HistoryList from './components/HistoryList.tsx'
+import AnalysisInfoBanner from './components/AnalysisInfoBanner.tsx'
 
 type Section = 'analyzer' | 'chatbot' | 'history'
 
@@ -18,15 +22,60 @@ function App() {
     matched_phrases?: Array<{phrase: string; score: number; method: string}>;
   }
 
+  type RiskMatrixRow = {
+    id: string;
+    categoria: string;
+    probabilidad: number;
+    impacto: string;
+    riesgo_afectacion: string[];
+    mitigacion: string;
+    responsable: string;
+  }
+
   type AnalysisData = {
     total_clausulas?: number;
     clausulas_analizadas?: Clause[];
     wordcloud?: Array<{text: string; value: number}>;
+    risk_matrix?: RiskMatrixRow[];
     [key: string]: unknown;
   }
 
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null)
   const [documentInfo, setDocumentInfo] = useState<{filename?: string; timestamp?: string} | null>(null)
+  const [analysisSource, setAnalysisSource] = useState<'history' | 'new' | null>(null)
+
+  // Función para cargar análisis desde el historial
+  const handleLoadFromHistory = (backendData: {
+    total_clausulas: number
+    clausulas_analizadas: Array<{numero: number; contenido: string; nivel_riesgo: string; clasificacion?: string; confianza?: number; matched_phrases?: Array<{phrase: string; score: number; method: string}>}>
+    wordcloud?: Array<{text: string; value: number}>
+    risk_matrix?: Array<{id: string; categoria: string; probabilidad: number; impacto: string; riesgo_afectacion?: string[]; mitigacion?: string; responsable?: string}>
+    filename: string
+    timestamp: string
+  }, historyDocumentInfo: {filename: string; timestamp: string}) => {
+    // Usar los datos directamente del backend con formato correcto
+    const transformedData: AnalysisData = {
+      total_clausulas: backendData.total_clausulas,
+      clausulas_analizadas: backendData.clausulas_analizadas || [],
+      wordcloud: backendData.wordcloud || [],
+      risk_matrix: backendData.risk_matrix?.map((rm) => ({
+        id: rm.id,
+        categoria: rm.categoria,
+        probabilidad: rm.probabilidad,
+        impacto: rm.impacto,
+        riesgo_afectacion: rm.riesgo_afectacion || [],
+        mitigacion: rm.mitigacion || '',
+        responsable: rm.responsable || ''
+      })) || []
+    }
+
+    setAnalysisData(transformedData)
+    setDocumentInfo(historyDocumentInfo)
+    setAnalysisSource('history')
+    setActiveSection('analyzer')
+
+    console.log('✅ Análisis cargado desde historial')
+  }
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -37,6 +86,7 @@ function App() {
 
       setAnalysisData(detail)
       setDocumentInfo({ filename, timestamp })
+      setAnalysisSource('new')
       setActiveSection('analyzer')
     }
 
@@ -44,6 +94,7 @@ function App() {
     const resetHandler = () => {
       setAnalysisData(null)
       setDocumentInfo(null)
+      setAnalysisSource(null)
     }
 
     window.addEventListener('analysis:completed', handler as EventListener)
@@ -75,28 +126,15 @@ function App() {
               <UploadForm />
 
               {/* Mostrar información del análisis actual si existe */}
-              {analysisData && documentInfo && (
-                <div style={{
-                  marginTop: '1rem',
-                  padding: '1rem',
-                  backgroundColor: '#f0f9ff',
-                  borderRadius: '8px',
-                  border: '1px solid #e0f2fe'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20" style={{ color: '#0284c7' }}>
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    <span style={{ fontWeight: 600, color: '#0284c7', fontSize: '0.875rem' }}>
-                      Análisis completado
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '0.875rem', color: '#64748b' }}>
-                    <strong>Archivo:</strong> {documentInfo.filename}<br/>
-                    <strong>Cláusulas analizadas:</strong> {analysisData.total_clausulas}<br/>
-                    <strong>Fecha:</strong> {documentInfo.timestamp ? new Date(documentInfo.timestamp).toLocaleString() : 'N/A'}
-                  </div>
-                </div>
+              {analysisData && documentInfo && analysisSource && (
+                <AnalysisInfoBanner
+                  analysisInfo={{
+                    filename: documentInfo.filename || 'Archivo desconocido',
+                    timestamp: documentInfo.timestamp || new Date().toISOString(),
+                    total_clausulas: analysisData.total_clausulas || 0,
+                    source: analysisSource
+                  }}
+                />
               )}
             </div>
 
@@ -115,9 +153,39 @@ function App() {
             <div className="section-card">
               <h2 className="section-header">
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M9.504 1.132a1 1 0 01.992 0l1.75 1a1 1 0 11-.992 1.736L10 3.152l-1.254.716a1 1 0 11-.992-1.736l1.75-1zM5.618 4.504a1 1 0 01-.372 1.364L5.016 6l.23.132a1 1 0 11-.992 1.736L3 7.723V8a1 1 0 01-2 0V6a.996.996 0 01.52-.878l1.734-.99a1 1 0 011.364.372zm8.764 0a1 1 0 011.364-.372l1.734.99A.996.996 0 0118 6v2a1 1 0 11-2 0v-.277l-1.254.145a1 1 0 11-.992-1.736L14.984 6l-.23-.132a1 1 0 01-.372-1.364zm-7 4a1 1 0 011.364-.372L10 8.848l1.254-.716a1 1 0 11.992 1.736L11 10.723V12a1 1 0 11-2 0v-1.277l-1.246-.855a1 1 0 01-.372-1.364zM3 11a1 1 0 011 1v1.277l1.254.716a1 1 0 11-.992 1.736l-1.75-1A1 1 0 012 14v-2a1 1 0 011-1zm14 0a1 1 0 011 1v2a1 1 0 01-.504.868l-1.75 1a1 1 0 11-.992-1.736L16 13.277V12a1 1 0 011-1zm-9.618 5.504a1 1 0 011.364-.372l.254.145V16a1 1 0 112 0v.277l.254-.145a1 1 0 11.992 1.736l-1.75 1a.996.996 0 01-.992 0l-1.75-1a1 1 0 01-.372-1.364z" clipRule="evenodd" />
+                </svg>
+                Nube de Palabras Clave
+              </h2>
+              <div className="card" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'center' }}>
+                <WordCloudChart
+                  data={analysisData?.wordcloud}
+                  width={600}
+                  height={400}
+                />
+              </div>
+            </div>
+
+            <div className="section-card">
+              <h2 className="section-header">
+                <svg className="section-icon" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" clipRule="evenodd" />
+                </svg>
+                Check Risk Register (CRR)
+              </h2>
+              <div className="card" style={{ padding: '1.5rem' }}>
+                <RiskMatrixTable
+                  data={analysisData?.risk_matrix}
+                />
+              </div>
+            </div>
+
+            <div className="section-card">
+              <h2 className="section-header">
+                <svg className="section-icon" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
                 </svg>
-                Detalle de Riesgos Detectados
+                RTAM (Risk and Term Assessment Module)
               </h2>
               <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                 <ResultsTable rows={
@@ -154,12 +222,8 @@ function App() {
               </svg>
               Historial de Análisis
             </h2>
-            <div className="placeholder-section">
-              <span className="placeholder-icon">📊</span>
-              <h3 className="placeholder-title">Historial</h3>
-              <p className="placeholder-description">
-                Ver todos los análisis anteriores y comparar resultados
-              </p>
+            <div className="card" style={{ padding: '1.5rem' }}>
+              <HistoryList onLoadAnalysis={handleLoadFromHistory} />
             </div>
           </div>
         )

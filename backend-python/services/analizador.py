@@ -18,23 +18,23 @@ class AnalizadorContratos:
         "fast": {
             "max_ngram": 3,
             "use_embeddings": False,
-            "top_n_phrases": 2,
-            "min_confidence": 0.7,
-            "min_score": 0.3
+            "top_n_phrases": 3,
+            "min_confidence": 0.95,
+            "min_score": 0.5  # Aumentado para ser más estricto
         },
         "balanced": {
             "max_ngram": 3,
             "use_embeddings": True,
             "top_n_phrases": 3,
             "min_confidence": 0.5,
-            "min_score": 0.2
+            "min_score": 0.4  # Aumentado para ser más estricto
         },
         "detailed": {
             "max_ngram": 4,
             "use_embeddings": True,
             "top_n_phrases": 5,
             "min_confidence": 0.3,
-            "min_score": 0.1
+            "min_score": 0.3  # Aumentado para ser más estricto
         }
     }
 
@@ -76,9 +76,9 @@ class AnalizadorContratos:
             'Pago': 'Clausula de pago',
             'Cambios': 'Clausula de cambios',
             'Penalidades': 'Clausula de penalidades',
-            'Terminacion': 'Clausula de terminacion',
-            'Resolucion de Disputas': 'Clausula de resolucion de disputas',
-            'Indemnizacion': 'Clausula de indemnizacion',
+            'Terminación': 'Clausula de terminacion',
+            'Resolución de Disputas': 'Clausula de resolucion de disputas',
+            'Indemnización': 'Clausula de indemnizacion',
             'Plazos de Reclamo': 'clausula de plazos de reclamo',
             'Seguridad y Salud': 'clausula de seguridad y salud',
             'Funciones y Responsabilidades (RNR)': 'clausula de funciones y responsabilidades',
@@ -114,6 +114,35 @@ class AnalizadorContratos:
             'Procedimientos': 'bajo',
             'Legal o Referencia Normativa': 'medio',
             'Temporal': 'medio',
+        }
+
+        # Mapeo para matriz de riesgos con ID, probabilidad y riesgo/afectación
+        self.matriz_riesgos_mapeo = {
+            'Clausula de pago': {'id': 1, 'probabilidad': 4, 'riesgo_afectacion': ['alcance', 'costo']},
+            'Clausula de cambios': {'id': 2, 'probabilidad': 4, 'riesgo_afectacion': ['costo', 'tiempo']},
+            'Clausula de penalidades': {'id': 3, 'probabilidad': 3, 'riesgo_afectacion': ['alcance', 'tiempo']},
+            'Clausula de terminacion': {'id': 4, 'probabilidad': 2, 'riesgo_afectacion': ['alcance', 'costo', 'tiempo']},
+            'Clausula de resolucion de disputas': {'id': 5, 'probabilidad': 4, 'riesgo_afectacion': ['costo', 'tiempo']},
+            'Clausula de indemnizacion': {'id': 6, 'probabilidad': 3, 'riesgo_afectacion': ['costo']},
+            'clausula de plazos de reclamo': {'id': 7, 'probabilidad': 4, 'riesgo_afectacion': ['tiempo']},
+            'clausula de seguridad y salud': {'id': 8, 'probabilidad': 2, 'riesgo_afectacion': ['costo']},
+            'clausula de funciones y responsabilidades': {'id': 9, 'probabilidad': 3, 'riesgo_afectacion': ['alcance', 'tiempo']},
+            'clausula de procedimientos': {'id': 10, 'probabilidad': 3, 'riesgo_afectacion': ['alcance', 'tiempo']},
+            'clausula legal o de referencia normativa': {'id': 11, 'probabilidad': 4, 'riesgo_afectacion': ['alcance', 'costo', 'tiempo']},
+            'clausula temporal': {'id': 12, 'probabilidad': 2, 'riesgo_afectacion': ['costo', 'tiempo']},
+            # Mapeos alternativos
+            'Pago': {'id': 1, 'probabilidad': 4, 'riesgo_afectacion': ['alcance', 'costo']},
+            'Cambios': {'id': 2, 'probabilidad': 4, 'riesgo_afectacion': ['costo', 'tiempo']},
+            'Penalidades': {'id': 3, 'probabilidad': 3, 'riesgo_afectacion': ['alcance', 'tiempo']},
+            'Terminacion': {'id': 4, 'probabilidad': 2, 'riesgo_afectacion': ['alcance', 'costo', 'tiempo']},
+            'Resolucion de Disputas': {'id': 5, 'probabilidad': 4, 'riesgo_afectacion': ['costo', 'tiempo']},
+            'Indemnizacion': {'id': 6, 'probabilidad': 3, 'riesgo_afectacion': ['costo']},
+            'Plazos de Reclamo': {'id': 7, 'probabilidad': 4, 'riesgo_afectacion': ['tiempo']},
+            'Seguridad y Salud': {'id': 8, 'probabilidad': 2, 'riesgo_afectacion': ['costo']},
+            'Funciones y Responsabilidades (RNR)': {'id': 9, 'probabilidad': 3, 'riesgo_afectacion': ['alcance', 'tiempo']},
+            'Procedimientos': {'id': 10, 'probabilidad': 3, 'riesgo_afectacion': ['alcance', 'tiempo']},
+            'Legal o Referencia Normativa': {'id': 11, 'probabilidad': 4, 'riesgo_afectacion': ['alcance', 'costo', 'tiempo']},
+            'Temporal': {'id': 12, 'probabilidad': 2, 'riesgo_afectacion': ['costo', 'tiempo']},
         }
 
     def _load_category_phrases(self):
@@ -167,11 +196,13 @@ class AnalizadorContratos:
         categoria_objetivo = self.mapeo_clasificacion_categoria.get(clasificacion)
 
         if not categoria_objetivo:
-            print(f"⚠️ No se encontró mapeo para clasificación: {clasificacion}")
+            print(f"⚠️ No se encontró mapeo para clasificación: '{clasificacion}'")
+            print(f"Mapeos disponibles: {list(self.mapeo_clasificacion_categoria.keys())}")
             return {}
 
         if categoria_objetivo not in self.category_phrases:
-            print(f"⚠️ No se encontraron etiquetas para categoría: {categoria_objetivo}")
+            print(f"⚠️ No se encontraron etiquetas para categoría: '{categoria_objetivo}'")
+            print(f"Categorías disponibles en etiquetas.json: {list(self.category_phrases.keys())}")
             return {}
 
         # Retornar solo las frases de la categoría específica
@@ -289,7 +320,7 @@ class AnalizadorContratos:
             'probabilidades': {self.id2label[i]: prob.item() for i, prob in enumerate(probs[0])}
         }
 
-    def analizar_contrato_completo(self, texto_contrato, max_tokens_por_clausula=512, modo="balanced"):
+    def analizar_contrato_completo(self, texto_contrato, max_tokens_por_clausula=512, modo="fast"):
         """
         Analizar todo el contrato y generar reporte de riesgos
 
@@ -347,11 +378,18 @@ class AnalizadorContratos:
                             max_ngram=config['max_ngram'],
                             use_embeddings=config['use_embeddings']
                         )
+
+                        if matched_phrases:
+                            print(f"   ✅ Etiquetas encontradas: {[mp['phrase'] for mp in matched_phrases]}")
+                        else:
+                            print(f"   ❌ No se encontraron etiquetas válidas")
                     else:
                         print(f"⚠️ No se encontraron etiquetas para clasificación: {clasificacion['etiqueta']}")
 
                 except Exception as e:
                     print(f"⚠️ Error generando matched_phrases para cláusula {i}: {e}")
+                    import traceback
+                    traceback.print_exc()
 
             resultado_clausula = {
                 'numero': i,
@@ -381,6 +419,9 @@ class AnalizadorContratos:
         except Exception as e:
             print(f"⚠️ Error generando wordcloud payload: {e}")
 
+        # Generar matriz de riesgos
+        risk_matrix = self._generar_matriz_riesgos(resultados)
+
         return {
             'total_clausulas': len(clausulas),
             'clausulas_analizadas': resultados,
@@ -388,6 +429,7 @@ class AnalizadorContratos:
             'estadisticas_tipos': dict(estadisticas),
             'resumen_riesgos': self._generar_resumen_riesgos(riesgos_encontrados, estadisticas),
             'wordcloud': wordcloud_payload,
+            'risk_matrix': risk_matrix,
             'modo_utilizado': modo,
             'configuracion_utilizada': config
         }
@@ -422,6 +464,51 @@ class AnalizadorContratos:
 
         resumen['recomendaciones'] = recomendaciones
         return resumen
+
+    def _generar_matriz_riesgos(self, clausulas_analizadas):
+        """
+        Generar matriz de riesgos basada en las cláusulas encontradas
+
+        Args:
+            clausulas_analizadas: Lista de cláusulas analizadas
+
+        Returns:
+            List: Matriz de riesgos con formato para frontend
+        """
+        # Agrupar cláusulas por clasificación
+        clausulas_por_tipo = defaultdict(list)
+        for clausula in clausulas_analizadas:
+            clasificacion = clausula['clasificacion']
+            clausulas_por_tipo[clasificacion].append(clausula)
+
+        matriz_riesgos = []
+
+        for clasificacion, clausulas_del_tipo in clausulas_por_tipo.items():
+            # Obtener información del mapeo
+            info_mapeo = self.matriz_riesgos_mapeo.get(clasificacion, {})
+
+            if not info_mapeo:
+                print(f"⚠️ No se encontró mapeo para clasificación: {clasificacion}")
+                continue
+
+            # Generar ID con enumeración por letras (a, b, c, etc.)
+            for i, clausula in enumerate(clausulas_del_tipo):
+                letra = chr(ord('a') + i)  # Convertir índice a letra (0->a, 1->b, etc.)
+
+                matriz_riesgos.append({
+                    'id': f"{info_mapeo['id']}.{letra}",
+                    'categoria': clasificacion,
+                    'probabilidad': info_mapeo['probabilidad'],
+                    'impacto': clausula.get('nivel_riesgo', 'desconocido'),
+                    'riesgo_afectacion': info_mapeo['riesgo_afectacion'],
+                    'mitigacion': '',  # Pendiente como solicitaste
+                    'responsable': ''  # Campo editable vacío
+                })
+
+        # Ordenar por ID numérico para mantener orden lógico
+        # matriz_riesgos.sort(key=lambda x: (int(x['id'].split('.')[0]), x['id'].split('.')[1]))
+
+        return matriz_riesgos
 
     def generar_reporte_detallado(self, resultado_analisis):
         """Generar reporte legible para humanos"""

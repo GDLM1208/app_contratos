@@ -1,12 +1,5 @@
 """Utilities para extracción y scoring de frases (matched_phrases) y generación de payload para nubes de palabras.
 
-Funciones principales:
-- extract_candidate_phrases(text): extrae n-grams y noun_chunks (si spaCy disponible)
-- precompute_category_embeddings(category_phrases): opcional, usa sentence-transformers
-- score_candidates(candidates, category_phrases, ...): combina fuzzy/tfidf/embedding
-- match_phrases_for_clause(text, category_phrases, ...): wrapper que devuelve top-N matched_phrases
-- build_wordcloud_payload_from_clauses(clauses): agrega matched_phrases de muchas cláusulas
-
 Este módulo intenta importar dependencias (spaCy, sentence-transformers, rapidfuzz, sklearn) pero
 funciona con heurísticas si faltan. Diseñado para integrarse con `analizador.py`.
 """
@@ -57,7 +50,6 @@ def _normalize_text(s: str) -> str:
     s = re.sub(r"\s+", " ", s).strip()
     return s
 
-# IMPORTANTE
 def extract_candidate_phrases(text: str, max_ngram: int = 3) -> List[str]:
     """Extrae candidatos de frases desde un texto.
 
@@ -153,6 +145,44 @@ def _embedding_similarity_score(vecs_cat, vec_candidate) -> List[float]:
         return []
 
 
+def _phrase_exists_in_categories(phrase: str, category_phrases: Dict[str, List[str]], similarity_threshold: float = 0.8) -> bool:
+    """
+    Verificar si una frase existe en las categorías especificadas.
+
+    Args:
+        phrase: Frase a verificar
+        category_phrases: Diccionario de categorías y sus frases
+        similarity_threshold: Umbral de similitud para considerar un match válido
+
+    Returns:
+        bool: True si la frase existe en alguna categoría con suficiente similitud
+    """
+    phrase_norm = _normalize_text(phrase)
+
+    for category, phrases in category_phrases.items():
+        for category_phrase in phrases:
+            category_phrase_norm = _normalize_text(category_phrase)
+
+            # Verificar coincidencia exacta
+            if phrase_norm == category_phrase_norm:
+                return True
+
+            # Verificar si una es substring de la otra (para frases compuestas)
+            if phrase_norm in category_phrase_norm or category_phrase_norm in phrase_norm:
+                return True
+
+            # Verificar similitud fuzzy si está disponible
+            if _has_rapidfuzz:
+                try:
+                    similarity = fuzz.token_sort_ratio(phrase_norm, category_phrase_norm) / 100.0
+                    if similarity >= similarity_threshold:
+                        return True
+                except Exception:
+                    pass
+
+    return False
+
+
 def score_candidates(
     candidates: List[str],
     category_phrases: Dict[str, List[str]],
@@ -197,13 +227,17 @@ def score_candidates(
             best_score = 0.0
             best_method = ''
 
+            # VALIDACIÓN PREVIA: Solo procesar si el candidato tiene alguna relación con las frases de la categoría
+            if not _has_any_similarity_to_category(cand_norm, phrases):
+                continue
+
             # embedding similarity (max over phrases in category)
             if use_embedding and candidate_embeddings is not None and cat_emb is not None:
                 sims = _embedding_similarity_score(cat_emb, candidate_embeddings[idx])
                 if sims:
                     maxsim = max(sims)
-                    # convert cosine [-1,1] to 0-1
-                    score = float(maxsim)
+                    # convert cosine [-1,1] to 0-1, but be more conservative
+                    score = max(0.0, float(maxsim))  # Ensure non-negative
                     if score > best_score:
                         best_score = score
                         best_method = 'embed'
@@ -230,13 +264,50 @@ def score_candidates(
                 except Exception:
                     pass
 
-            # store
-            results[cat].append((cand, float(best_score), best_method))
+            # Solo almacenar si tiene un score significativo (> 0)
+            if best_score > 0.0:
+                results[cat].append((cand, float(best_score), best_method))
 
         # sort by score desc
         results[cat].sort(key=lambda x: x[1], reverse=True)
 
     return results
+
+
+def _has_any_similarity_to_category(candidate_norm: str, phrases: List[str], min_similarity: float = 0.5) -> bool:
+    """
+    Verificar si un candidato tiene alguna similitud mínima con las frases de una categoría.
+
+    Args:
+        candidate_norm: Candidato normalizado
+        phrases: Lista de frases de la categoría
+        min_similarity: Similitud mínima requerida (0.0 a 1.0)
+
+    Returns:
+        bool: True si tiene similitud mínima con al menos una frase
+    """
+    if not phrases:
+        return False
+
+    for phrase in phrases:
+        phrase_norm = _normalize_text(phrase)
+
+        # Verificar coincidencia exacta o substring
+        if candidate_norm == phrase_norm:
+            return True
+        if candidate_norm in phrase_norm or phrase_norm in candidate_norm:
+            return True
+
+        # Verificar similitud fuzzy si está disponible
+        if _has_rapidfuzz:
+            try:
+                similarity = fuzz.token_sort_ratio(candidate_norm, phrase_norm) / 100.0
+                if similarity >= min_similarity:
+                    return True
+            except Exception:
+                pass
+
+    return False
 
 
 def match_phrases_for_clause(
@@ -261,6 +332,11 @@ def match_phrases_for_clause(
 
     Devuelve lista de dicts: {'phrase':..., 'score':..., 'method':...}
     """
+    # Validar que tenemos categorías válidas
+    if not category_phrases or not any(phrases for phrases in category_phrases.values()):
+        print("⚠️ No hay categorías válidas o están vacías")
+        return []
+
     candidates = extract_candidate_phrases(text, max_ngram=max_ngram)
     if not candidates:
         return []
@@ -280,7 +356,12 @@ def match_phrases_for_clause(
         # take best
         phrase, score, method = lst[0]
         if score >= min_score:
-            global_hits.append((phrase, score, method))
+            # VALIDACIÓN ADICIONAL: Solo incluir si la frase realmente está en alguna categoría
+            # Usar un umbral más estricto para la validación final
+            if _phrase_exists_in_categories(phrase, category_phrases, similarity_threshold=0.85):
+                global_hits.append((phrase, score, method))
+            else:
+                print(f"🚫 Etiqueta rechazada: '{phrase}' (score: {score:.3f}) - No existe en categorías")
 
     # deduplicate by normalized phrase
     seen = set()
