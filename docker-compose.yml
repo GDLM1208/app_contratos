@@ -19,12 +19,6 @@ services:
     networks:
       - contratos_network
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
 
   # Frontend - React + TypeScript + Vite
   frontend:
@@ -37,8 +31,7 @@ services:
     environment:
       - VITE_API_URL=http://localhost:8000
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     networks:
       - contratos_network
     restart: unless-stopped

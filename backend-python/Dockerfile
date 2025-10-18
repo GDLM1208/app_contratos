@@ -50,8 +50,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-spa \
     libtesseract-dev \
-    # Para health check
-    curl \
     # Limpieza
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
