@@ -33,8 +33,8 @@ const WordCloudChart = ({ data = [], width = 600, height = 400 }: WordCloudChart
     const maxValue = Math.max(...data.map(d => d.value))
     const minValue = Math.min(...data.map(d => d.value))
     const fontScale = (value: number) => {
-      const minFont = 14
-      const maxFont = 48
+      const minFont = 18
+      const maxFont = 72
       if (maxValue === minValue) return 24
       return minFont + ((value - minValue) / (maxValue - minValue)) * (maxFont - minFont)
     }
