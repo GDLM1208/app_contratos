@@ -55,8 +55,8 @@ class FiltradorClausulasConstructor:
 
         # Configuraciones de filtrado
         self.longitud_minima = 20  # palabras
-        self.longitud_maxima = 500  # palabras
-        self.umbral_relevancia = 0.2  # score mínimo para considerar relevante
+        self.longitud_maxima = 600  # palabras
+        self.umbral_relevancia = 0.25  # score mínimo
 
     def preprocesar_texto(self, texto: str) -> str:
         """
@@ -146,13 +146,15 @@ class FiltradorClausulasConstructor:
         elif num_palabras > self.longitud_maxima:
             return 0.0
 
-        # Score óptimo entre 50-150 palabras
-        if 50 <= num_palabras <= 150:
-            return 1.0
+        # Distribución mejorada para diferentes tamaños de cláusulas
+        if 50 <= num_palabras <= 200:
+            return 1.0    # Score óptimo ampliado
         elif 30 <= num_palabras < 50:
-            return 0.7
-        elif 150 < num_palabras <= 300:
-            return 0.8
+            return 0.8    # Aumentado de 0.7
+        elif 200 < num_palabras <= 400:
+            return 0.9    # NUEVO RANGO - párrafos medianos
+        elif 400 < num_palabras <= 600:
+            return 0.7    # NUEVO RANGO - párrafos largos pero válidos
         else:
             return 0.5
 

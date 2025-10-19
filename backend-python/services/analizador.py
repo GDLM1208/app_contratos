@@ -283,20 +283,112 @@ class AnalizadorContratos:
         print(f"⚠️ No se encontró modelo, usando fallback: {local_model_path}")
         return local_model_path
 
+    def _normalizar_y_separar_parrafos(self, texto):
+        """
+        Normaliza y separa párrafos de forma robusta para PDFs con texto directo y escaneados.
+
+        Estrategia:
+        1. Detectar patrones de cláusulas contractuales (CLÁUSULA, Artículo, etc.)
+        2. Separar por puntos finales seguidos de mayúscula
+        3. Manejar saltos de línea inconsistentes
+        4. Unificar formato para ambos tipos de PDF
+        """
+
+        # Paso 1: Normalizar saltos de línea múltiples
+        texto = re.sub(r'\n{3,}', '\n\n', texto)  # Máximo 2 saltos consecutivos
+
+        # Paso 2: Unir líneas que claramente son parte del mismo párrafo
+        # (líneas que terminan sin punto y la siguiente no empieza con mayúscula/número)
+        lineas = texto.split('\n')
+        parrafos_unidos = []
+        buffer_actual = []
+
+        for i, linea in enumerate(lineas):
+            linea_limpia = linea.strip()
+
+            # Saltar líneas vacías
+            if not linea_limpia:
+                if buffer_actual:
+                    parrafos_unidos.append(' '.join(buffer_actual))
+                    buffer_actual = []
+                continue
+
+            # Detectar inicio de nueva cláusula/sección (patrones contractuales)
+            es_inicio_clausula = bool(re.match(
+                r'^(CLÁUSULA|CLAUSULA|ARTÍCULO|ARTICULO|CAPÍTULO|CAPITULO|'
+                r'\d+\.|[IVX]+\.|[a-z]\)|\(\d+\)|Artículo|Art\.)',
+                linea_limpia,
+                re.IGNORECASE
+            ))
+
+            # Si es inicio de cláusula, guardar buffer anterior
+            if es_inicio_clausula and buffer_actual:
+                parrafos_unidos.append(' '.join(buffer_actual))
+                buffer_actual = [linea_limpia]
+                continue
+
+            # Detectar si línea termina con punto final (fin de oración completa)
+            termina_con_punto = linea_limpia.endswith(('.', ':', ';', '?', '!'))
+
+            # Siguiente línea empieza con mayúscula/número (posible nueva oración)
+            siguiente_es_mayuscula = False
+            if i + 1 < len(lineas):
+                siguiente_limpia = lineas[i + 1].strip()
+                siguiente_es_mayuscula = bool(
+                    siguiente_limpia and
+                    (siguiente_limpia[0].isupper() or siguiente_limpia[0].isdigit())
+                )
+
+            # Agregar línea al buffer
+            buffer_actual.append(linea_limpia)
+
+            # Decidir si cerrar párrafo
+            if termina_con_punto and siguiente_es_mayuscula:
+                parrafos_unidos.append(' '.join(buffer_actual))
+                buffer_actual = []
+
+        # Guardar último buffer
+        if buffer_actual:
+            parrafos_unidos.append(' '.join(buffer_actual))
+
+        # Paso 3: Separar por patrones de cláusulas si aún hay párrafos muy largos
+        parrafos_finales = []
+        for parrafo in parrafos_unidos:
+            # Si el párrafo tiene múltiples cláusulas juntas, separarlas
+            if len(parrafo.split()) > 500:  # Párrafos muy largos
+                # Buscar patrones de inicio de cláusula dentro del texto
+                fragmentos = re.split(
+                    r'(?=\b(?:CLÁUSULA|CLAUSULA|ARTÍCULO|ARTICULO)\s+[IVX\d]+)',
+                    parrafo,
+                    flags=re.IGNORECASE
+                )
+                parrafos_finales.extend([f.strip() for f in fragmentos if f.strip()])
+            else:
+                parrafos_finales.append(parrafo.strip())
+
+        # Filtrar párrafos vacíos y muy cortos (menos de 3 palabras)
+        parrafos_finales = [
+            p for p in parrafos_finales
+            if p and len(p.split()) >= 3
+        ]
+
+        return parrafos_finales
+
     def extraer_parrafos_y_fragmentos(self, texto, max_tokens=512):
         """
         Separar el contrato en párrafos y fragmentarlos si exceden el límite de tokens.
         """
         # Separar en párrafos usando doble salto de línea
-        parrafos = re.split(r'\n\n+', texto)
+        parrafos = self._normalizar_y_separar_parrafos(texto)
 
         filtro = FiltradorClausulasConstructor()
         parrafos_procesados = []
-        estadisticas_filtro = {'total_original': len(parrafos), 'descartadas': 0}
+        estadisticas_filtro = {'total_original': len(parrafos), 'descartadas': 0, 'truncados': 0}
 
         for parrafo in parrafos:
             parrafo = parrafo.strip()
 
+            # Filtrar primero
             filtro_clausula = filtro.filtrar_clausula(parrafo)
 
             if filtro_clausula['es_relevante']:
@@ -305,24 +397,20 @@ class AnalizadorContratos:
 
                 # Si el párrafo excede el límite de tokens, fragmentarlo
                 if len(tokens) > max_tokens:
-                    fragmentos = []
-                    while len(tokens) > max_tokens:
-                        # Cortar en un punto natural, aquí un ejemplo simple: en el punto de la mitad
-                        fragmento = self.tokenizer.decode(tokens[:max_tokens])
-                        fragmentos.append(fragmento)
-                        tokens = tokens[max_tokens:]  # Cortamos los tokens procesados
-                    # Añadir el último fragmento
-                    if tokens:
-                        fragmentos.append(self.tokenizer.decode(tokens))
+                    estadisticas_filtro['truncados'] += 1
+                    fragmentos = self._fragmentar_en_oraciones(parrafo, max_tokens)
+
                     parrafos_procesados.append({
                         'parrafo': fragmentos,
                         'truncado': True,
+                        'num_fragmentos': len(fragmentos),
                         'filtro_info': filtro_clausula
                     })
                 else:
                     parrafos_procesados.append({
-                        'parrafo': [parrafo],  # No se fragmenta si está dentro del límite
-                        'truncado': False
+                        'parrafo': [parrafo],
+                        'truncado': False,
+                        'num_fragmentos': 1
                     })
             else:
                 estadisticas_filtro['descartadas'] += 1
@@ -333,13 +421,61 @@ class AnalizadorContratos:
         ) if estadisticas_filtro['total_original'] > 0 else 0
 
         print(f"📊 Filtrado completado: {estadisticas_filtro['procesadas']}/{estadisticas_filtro['total_original']} cláusulas retenidas ({estadisticas_filtro['porcentaje_retenido']}%)")
+        if estadisticas_filtro['truncados'] > 0:
+            print(f"   ℹ️ {estadisticas_filtro['truncados']} párrafos fragmentados inteligentemente")
 
         return parrafos_procesados
 
+    def _fragmentar_en_oraciones(self, texto, max_tokens=512):
+        """
+        MEJORADO: Fragmenta en puntos naturales (oraciones) en lugar de cortes simples
+        Preserva contexto y semántica
+        """
+        # Separar por oraciones (puntos, signos de exclamación, interrogación)
+        oraciones = re.split(r'(?<=[.!?])\s+', texto)
+
+        fragmentos = []
+        fragmento_actual = []
+        tokens_actuales = 0
+
+        for oracion in oraciones:
+            # Contar tokens de esta oración
+            tokens_oracion = len(self.tokenizer.encode(oracion, add_special_tokens=False))
+
+            # Si agregar esta oración excedería el límite
+            if tokens_actuales + tokens_oracion > max_tokens and fragmento_actual:
+                # Guardar fragmento anterior
+                fragmentos.append(' '.join(fragmento_actual))
+                fragmento_actual = [oracion]
+                tokens_actuales = tokens_oracion
+            else:
+                fragmento_actual.append(oracion)
+                tokens_actuales += tokens_oracion
+
+        # Agregar último fragmento
+        if fragmento_actual:
+            fragmentos.append(' '.join(fragmento_actual))
+
+        # Si no pudo fragmentar (oración muy larga), usar decode del tokenizador
+        if not fragmentos:
+            tokens = self.tokenizer.encode(texto, add_special_tokens=False)
+            fragmentos.append(self.tokenizer.decode(tokens[:max_tokens]))
+            if len(tokens) > max_tokens:
+                fragmentos.append(self.tokenizer.decode(tokens[max_tokens:]))
+
+        return fragmentos
+
 
     def clasificar_clausula(self, texto):
-        """Clasificar una cláusula individual"""
-        inputs = self.tokenizer(texto, return_tensors="pt", truncation=True, padding=True, max_length=512)
+        """Clasificar una cláusula individual - CON truncamiento explícito"""
+        # Tokenizar CON truncamiento automático a 512 tokens
+        inputs = self.tokenizer(
+            texto,
+            return_tensors="pt",
+            truncation=True,           # AGREGADO: truncar automáticamente
+            padding=True,
+            max_length=512             # Aplicar límite aquí
+        )
 
         with torch.no_grad():
             outputs = self.model(**inputs)
