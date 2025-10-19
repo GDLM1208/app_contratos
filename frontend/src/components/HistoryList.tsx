@@ -60,7 +60,7 @@ const HistoryList = ({ onLoadAnalysis }: HistoryListProps) => {
       setLoading(true)
       setError(null)
 
-      const response = await fetch(`${API_URL}/api/analisis/historial?limit=50`)
+      const response = await fetch(`${API_URL}/analisis/historial?limit=50`)
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
@@ -90,7 +90,7 @@ const HistoryList = ({ onLoadAnalysis }: HistoryListProps) => {
       setLoadingAnalysis(analisisId)
       setError(null)
 
-      const response = await fetch(`${API_URL}/api/analisis/${analisisId}`)
+      const response = await fetch(`${API_URL}/analisis/${analisisId}`)
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)

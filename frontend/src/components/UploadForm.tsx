@@ -24,7 +24,7 @@ const UploadForm = () => {
     const formData = new FormData();
     formData.append('pdf_file', file);
     try {
-      const res = await fetch(`${API_URL}/api/analizar-contrato-pdf`, {
+      const res = await fetch(`${API_URL}/analizar-contrato-pdf`, {
         method: 'POST',
         body: formData,
       });
