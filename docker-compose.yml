@@ -11,6 +11,8 @@ services:
       - ENV=production
       - CORS_ORIGINS=http://localhost:3000,http://localhost:80,http://frontend
       - DATABASE_URL=sqlite:///./app_data/contratos.db
+    env_file:
+      - ./backend-python/.env
     volumes:
       # Persistir base de datos
       - ./data:/app/app_data
