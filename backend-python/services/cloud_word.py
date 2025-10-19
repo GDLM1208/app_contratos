@@ -7,7 +7,36 @@ from typing import List, Dict, Any, Iterable, Optional, Tuple
 import re
 import unicodedata
 from collections import Counter, defaultdict
-import math
+
+# Stopwords en español para filtrar palabras vacías
+SPANISH_STOPWORDS = {
+    'el', 'la', 'de', 'que', 'y', 'a', 'en', 'un', 'ser', 'se', 'no', 'haber',
+    'por', 'con', 'su', 'para', 'es', 'o', 'este', 'sí', 'porque', 'esta',
+    'son', 'entre', 'está', 'cuando', 'muy', 'sin', 'sobre', 'ser', 'tiene',
+    'también', 'me', 'hasta', 'hay', 'donde', 'han', 'quien', 'están', 'estado',
+    'desde', 'todo', 'nos', 'durante', 'estados', 'todos', 'uno', 'les', 'ni',
+    'contra', 'otros', 'fueron', 'ese', 'eso', 'estas', 'estaba', 'estamos',
+    'algunas', 'algo', 'nosotros', 'mi', 'mío', 'tú', 'te', 'ti', 'tu', 'tus',
+    'ellos', 'esas', 'esos', 'nuestra', 'nuestro', 'vuestra', 'vuestro', 'os',
+    'mía', 'mías', 'míos', 'tuya', 'tuyo', 'tuyos', 'tuyas', 'suya', 'suyo',
+    'suyos', 'suyas', 'nuestra', 'nuestras', 'nuestro', 'nuestros', 'vosotras',
+    'vosotros', 'vuestra', 'vuestras', 'vuestro', 'vuestros', 'esa', 'eso',
+    'hemos', 'habían', 'habías', 'habíamos', 'habían', 'habrá', 'habrán',
+    'habría', 'habrían', 'haya', 'hayan', 'hayamos', 'hayáis', 'había',
+    'habré', 'habremos', 'habréis', 'habrá', 'habrán', 'habría', 'habríamos',
+    'habríais', 'habrían', 'haya', 'hayas', 'hayamos', 'hayáis', 'hayan',
+    'habi', 'habías', 'habíamos', 'habíais', 'habían', 'he', 'has', 'hemos',
+    'habéis', 'han', 'haya', 'hayas', 'hayamos', 'hayáis', 'hayan', 'había',
+    'habías', 'habíamos', 'habíais', 'habían', 'habrá', 'habrás', 'habremos',
+    'habréis', 'habrán', 'habría', 'habrías', 'habríamos', 'habríais', 'habrían',
+    'haya', 'hayas', 'hayamos', 'hayáis', 'hayan', 'dé', 'des', 'demos', 'deis',
+    'den', 'daba', 'dabas', 'dábamos', 'dabais', 'daban', 'daré', 'darás',
+    'daremos', 'daréis', 'darán', 'daría', 'darías', 'daríamos', 'daríais',
+    'darían', 'dé', 'des', 'demos', 'deis', 'den', 'daba', 'dabas', 'dábamos',
+    'dabais', 'daban', 'daré', 'darás', 'daremos', 'daréis', 'darán', 'daría',
+    'darías', 'daríamos', 'daríais', 'darían', 'dé', 'des', 'demos', 'deis', 'den'
+}
+
 
 # ---- Lazy imports for optional libs ----
 _has_spacy = False
@@ -39,6 +68,30 @@ try:
     _has_sklearn = True
 except Exception:
     TfidfVectorizer = None
+
+
+def _is_stopword(word: str) -> bool:
+    """Verifica si una palabra es un stopword en español."""
+    return word.lower() in SPANISH_STOPWORDS
+
+
+def _filter_stopwords(phrase: str) -> str:
+    """Filtra stopwords de una frase. Retorna la frase sin stopwords o vacío si solo tenía stopwords.
+
+    IMPORTANTE: Solo filtra stopwords cuando la frase es muy corta (1-2 palabras).
+    Para frases con múltiples palabras, las mantiene intactas para preservar etiquetas
+    como 'plazo de reclamo', 'resolución de disputas', etc.
+    """
+    words = phrase.split()
+
+    # Si la frase tiene 3+ palabras, asumimos que es una etiqueta definida y no la filtramos
+    # Esto preserva etiquetas como "plazo de reclamo", "resolución de disputas"
+    if len(words) >= 3:
+        return phrase
+
+    # Para frases cortas (1-2 palabras), filtrar stopwords
+    filtered = [w for w in words if not _is_stopword(w)]
+    return ' '.join(filtered).strip()
 
 
 def _normalize_text(s: str) -> str:
@@ -384,6 +437,7 @@ def build_wordcloud_payload_from_clauses(clauses: Iterable[Dict[str, Any]], phra
     """Agrega matched_phrases desde una colección de cláusulas y retorna lista [{text, value}].
 
     clauses: iterable of dicts como las que devuelve `analizar_contrato_completo` (cada cláusula puede tener key 'matched_phrases').
+    Filtra stopwords en español para evitar palabras vacías como 'de', 'el', etc.
     """
     ctr = Counter()
     for c in clauses:
@@ -408,8 +462,14 @@ def build_wordcloud_payload_from_clauses(clauses: Iterable[Dict[str, Any]], phra
                 continue
             if score < min_score:
                 continue
+
+            # ✅ NUEVO: Filtrar stopwords
+            phrase_filtered = _filter_stopwords(phrase)
+            if not phrase_filtered:  # Si después del filtro queda vacío, saltar
+                continue
+
             # increment by 1 occurrence (could weight by score)
-            ctr[phrase] += 1
+            ctr[phrase_filtered] += 1
 
     return [{"text": k, "value": v} for k, v in ctr.most_common()]
 

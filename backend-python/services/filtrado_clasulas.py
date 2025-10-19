@@ -54,9 +54,9 @@ class FiltradorClausulasConstructor:
         ]
 
         # Configuraciones de filtrado
-        self.longitud_minima = 30  # palabras
+        self.longitud_minima = 20  # palabras
         self.longitud_maxima = 500  # palabras
-        self.umbral_relevancia = 0.25  # score mínimo para considerar relevante
+        self.umbral_relevancia = 0.2  # score mínimo para considerar relevante
 
     def preprocesar_texto(self, texto: str) -> str:
         """
