@@ -17,7 +17,15 @@ interface RiskMatrixTableProps {
 const RiskMatrixTable = ({ data = [] }: RiskMatrixTableProps) => {
   const [editableResponsables, setEditableResponsables] = React.useState<{[key: string]: string}>({})
 
-  // Mapeo de probabilidad a colores y texto
+  // Mapeo de probabilidad a colores (solo color, sin texto)
+  // Alto (4-5): rojo, Medio (3): amarillo, Bajo (1-2): verde
+  const getProbabilityColor = (probabilidad: number) => {
+    if (probabilidad >= 4) return '#ef4444' // Alto - Rojo
+    if (probabilidad === 3) return '#f59e0b' // Medio - Amarillo
+    return '#10b981' // Bajo (1-2) - Verde
+  }
+
+  // Mapeo de probabilidad a colores y texto (para la leyenda)
   const getProbabilityInfo = (probabilidad: number) => {
     const mapping = {
       1: { text: 'Muy Baja', color: '#10b981', bgColor: '#ecfdf5' },
@@ -164,22 +172,14 @@ const RiskMatrixTable = ({ data = [] }: RiskMatrixTableProps) => {
                 <td style={{ padding: '12px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
                   <div
                     style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '4px 8px',
+                      width: '100%',
+                      height: '40px',
                       borderRadius: '6px',
-                      backgroundColor: probInfo.bgColor,
-                      color: probInfo.color,
-                      fontWeight: 600,
-                      fontSize: '13px'
+                      backgroundColor: getProbabilityColor(row.probabilidad),
+                      transition: 'opacity 0.2s'
                     }}
-                  >
-                    {row.probabilidad}
-                    <span style={{ fontSize: '11px', fontWeight: 500 }}>
-                      ({probInfo.text})
-                    </span>
-                  </div>
+                    title={`Probabilidad: ${row.probabilidad} - ${probInfo.text}`}
+                  />
                 </td>
                 <td style={{ padding: '12px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
                   <span
@@ -201,8 +201,10 @@ const RiskMatrixTable = ({ data = [] }: RiskMatrixTableProps) => {
                     {renderRiskBadges(row.riesgo_afectacion)}
                   </div>
                 </td>
-                <td style={{ padding: '12px', borderBottom: '1px solid #e2e8f0', fontStyle: 'italic', color: '#6b7280' }}>
-                  {row.mitigacion || 'Pendiente de definir'}
+                <td style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '13px', lineHeight: '1.6', color: '#374151', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                    {row.mitigacion || 'Pendiente de definir'}
+                  </div>
                 </td>
                 <td style={{ padding: '8px', borderBottom: '1px solid #e2e8f0' }}>
                   <input

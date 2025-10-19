@@ -67,26 +67,37 @@ const buildChartFromAnalysis = (clauses: Clause[]): ChartItem[] => {
   return items
 }
 
-const RiskBarChart = ({ data }: { data?: ChartItem[] }) => {
+// Ahora el componente acepta opcionalmente un prop `clauses` con las cláusulas
+// analizadas para construir el gráfico directamente desde el padre (por ejemplo
+// cuando se carga desde historial). Si no se proporciona, sigue respondiendo
+// al evento `analysis:completed` o a un prop `data` con la estructura ChartItem[].
+const RiskBarChart = ({ data, clauses }: { data?: ChartItem[]; clauses?: Clause[] }) => {
   const [chartData, setChartData] = useState<ChartItem[]>(data ?? exampleData)
 
   useEffect(() => {
+    // Priorizar prop `clauses` si existe (p.ej. carga desde historial)
+    if (clauses && clauses.length) {
+      const built = buildChartFromAnalysis(clauses)
+      if (built.length) setChartData(built)
+      return
+    }
+
     if (data && data.length) {
       setChartData(data)
       return
     }
 
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail
+      const detail = (e as CustomEvent).detail?.data
       if (!detail) return
-      const clauses: Clause[] = detail.clausulas_analizadas || []
-      const built = buildChartFromAnalysis(clauses)
+      const incomingClauses: Clause[] = detail.clausulas_analizadas || []
+      const built = buildChartFromAnalysis(incomingClauses)
       if (built.length) setChartData(built)
     }
 
     window.addEventListener('analysis:completed', handler as EventListener)
     return () => window.removeEventListener('analysis:completed', handler as EventListener)
-  }, [data])
+  }, [data, clauses])
 
   return (
     <ResponsiveContainer width="100%" height={400}>

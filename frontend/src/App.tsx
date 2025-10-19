@@ -74,6 +74,12 @@ function App() {
     setAnalysisSource('history')
     setActiveSection('analyzer')
 
+    // Emitir evento para compatibilidad con componentes que escuchan
+    // `analysis:completed` (por ejemplo, si hay otros componentes fuera
+    // del árbol React que dependen de este evento)
+    const eventDetail = { data: transformedData, filename: historyDocumentInfo.filename, timestamp: historyDocumentInfo.timestamp }
+    window.dispatchEvent(new CustomEvent('analysis:completed', { detail: eventDetail }))
+
     console.log('✅ Análisis cargado desde historial')
   }
 
@@ -141,28 +147,20 @@ function App() {
             <div className="section-card">
               <h2 className="section-header">
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
                 </svg>
-                Análisis de Riesgos
+                RTAM (Risk and Term Assessment Module)
               </h2>
-              <div className="card" style={{ padding: '1.5rem' }}>
-                <RiskBarChart />
-              </div>
-            </div>
-
-            <div className="section-card">
-              <h2 className="section-header">
-                <svg className="section-icon" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M9.504 1.132a1 1 0 01.992 0l1.75 1a1 1 0 11-.992 1.736L10 3.152l-1.254.716a1 1 0 11-.992-1.736l1.75-1zM5.618 4.504a1 1 0 01-.372 1.364L5.016 6l.23.132a1 1 0 11-.992 1.736L3 7.723V8a1 1 0 01-2 0V6a.996.996 0 01.52-.878l1.734-.99a1 1 0 011.364.372zm8.764 0a1 1 0 011.364-.372l1.734.99A.996.996 0 0118 6v2a1 1 0 11-2 0v-.277l-1.254.145a1 1 0 11-.992-1.736L14.984 6l-.23-.132a1 1 0 01-.372-1.364zm-7 4a1 1 0 011.364-.372L10 8.848l1.254-.716a1 1 0 11.992 1.736L11 10.723V12a1 1 0 11-2 0v-1.277l-1.246-.855a1 1 0 01-.372-1.364zM3 11a1 1 0 011 1v1.277l1.254.716a1 1 0 11-.992 1.736l-1.75-1A1 1 0 012 14v-2a1 1 0 011-1zm14 0a1 1 0 011 1v2a1 1 0 01-.504.868l-1.75 1a1 1 0 11-.992-1.736L16 13.277V12a1 1 0 011-1zm-9.618 5.504a1 1 0 011.364-.372l.254.145V16a1 1 0 112 0v.277l.254-.145a1 1 0 11.992 1.736l-1.75 1a.996.996 0 01-.992 0l-1.75-1a1 1 0 01-.372-1.364z" clipRule="evenodd" />
-                </svg>
-                Nube de Palabras Clave
-              </h2>
-              <div className="card" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'center' }}>
-                <WordCloudChart
-                  data={analysisData?.wordcloud}
-                  width={600}
-                  height={400}
-                />
+              <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                <ResultsTable rows={
+                  analysisData?.clausulas_analizadas?.map((c: Clause) => ({
+                    id: c.numero,
+                    descripcion: c.contenido,
+                    impacto: (c.nivel_riesgo || 'Desconocido'),
+                    etiquetas: c.matched_phrases?.map(mp => mp.phrase).join(', ') || '',
+                    comentarios: `Clasificación: ${c.clasificacion || 'N/A'} (Confianza: ${c.confianza ?? 'N/A'})`
+                  })) || undefined
+                } />
               </div>
             </div>
 
@@ -183,20 +181,19 @@ function App() {
             <div className="section-card">
               <h2 className="section-header">
                 <svg className="section-icon" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M9.504 1.132a1 1 0 01.992 0l1.75 1a1 1 0 11-.992 1.736L10 3.152l-1.254.716a1 1 0 11-.992-1.736l1.75-1zM5.618 4.504a1 1 0 01-.372 1.364L5.016 6l.23.132a1 1 0 11-.992 1.736L3 7.723V8a1 1 0 01-2 0V6a.996.996 0 01.52-.878l1.734-.99a1 1 0 011.364.372zm8.764 0a1 1 0 011.364-.372l1.734.99A.996.996 0 0118 6v2a1 1 0 11-2 0v-.277l-1.254.145a1 1 0 11-.992-1.736L14.984 6l-.23-.132a1 1 0 01-.372-1.364zm-7 4a1 1 0 011.364-.372L10 8.848l1.254-.716a1 1 0 11.992 1.736L11 10.723V12a1 1 0 11-2 0v-1.277l-1.246-.855a1 1 0 01-.372-1.364zM3 11a1 1 0 011 1v1.277l1.254.716a1 1 0 11-.992 1.736l-1.75-1A1 1 0 012 14v-2a1 1 0 011-1zm14 0a1 1 0 011 1v2a1 1 0 01-.504.868l-1.75 1a1 1 0 11-.992-1.736L16 13.277V12a1 1 0 011-1zm-9.618 5.504a1 1 0 011.364-.372l.254.145V16a1 1 0 112 0v.277l.254-.145a1 1 0 11.992 1.736l-1.75 1a.996.996 0 01-.992 0l-1.75-1a1 1 0 01-.372-1.364z" clipRule="evenodd" />
                 </svg>
-                RTAM (Risk and Term Assessment Module)
+                Automated Term Evaluation Module (ATEM)
               </h2>
-              <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <ResultsTable rows={
-                  analysisData?.clausulas_analizadas?.map((c: Clause) => ({
-                    id: c.numero,
-                    descripcion: c.contenido,
-                    impacto: (c.nivel_riesgo || 'Desconocido'),
-                    etiquetas: c.matched_phrases?.map(mp => mp.phrase).join(', ') || '',
-                    comentarios: `Clasificación: ${c.clasificacion || 'N/A'} (Confianza: ${c.confianza ?? 'N/A'})`
-                  })) || undefined
-                } />
+              <div className="card" style={{ padding: '1.5rem', display: 'flex', justifyContent: 'center' }}>
+                <WordCloudChart
+                  data={analysisData?.wordcloud}
+                  width={650}
+                  height={550}
+                />
+              </div>
+              <div className="card" style={{ padding: '1.5rem' }}>
+                <RiskBarChart clauses={analysisData?.clausulas_analizadas as Clause[] | undefined} />
               </div>
             </div>
           </>

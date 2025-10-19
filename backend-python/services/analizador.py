@@ -145,6 +145,41 @@ class AnalizadorContratos:
             'Temporal': {'id': 12, 'probabilidad': 2, 'riesgo_afectacion': ['costo', 'tiempo']},
         }
 
+        # Diccionario de estrategias de mitigación por tipo de riesgo/afectación
+        # Se selecciona basándose en la probabilidad: alta (4-5) = 3 opciones, media (3) = 2 opciones, baja (1-2) = 1 opción
+        self.estrategias_mitigacion = {
+            'tiempo': [
+                'Compresión cronograma',
+                'Fast-tracking actividades paralelizables',
+                'Buffer management programado'
+            ],
+            'alcance/costo': [
+                'Control integrado de cambios',
+                'Análisis de valor ganado',
+                'Revisión umbrales costo-alcance'
+            ],
+            'alcance/tiempo': [
+                'Priorización valor entregable',
+                'Análisis ruta crítica',
+                'Entregas parciales escalonadas'
+            ],
+            'costo/tiempo': [
+                'Nivelación recursos críticos',
+                'Trade-offs tiempo-costo',
+                'Estimación paramétrica optimizada'
+            ],
+            'alcance/costo/tiempo': [
+                'Replanificación con EVA',
+                'Rebaselining integral proyecto',
+                'Planificación iterativa ágil'
+            ],
+            'costo': [
+                'Control integrado de cambios',
+                'Análisis de valor ganado',
+                'Revisión umbrales costo-alcance'
+            ]
+        }
+
     def _load_category_phrases(self):
         """Cargar el diccionario de frases por categoría desde models/etiquetas.json"""
         try:
@@ -465,6 +500,44 @@ class AnalizadorContratos:
         resumen['recomendaciones'] = recomendaciones
         return resumen
 
+    def _seleccionar_mitigaciones(self, riesgo_afectacion, probabilidad):
+        """
+        Seleccionar estrategias de mitigación basadas en el tipo de riesgo/afectación y probabilidad.
+
+        Args:
+            riesgo_afectacion (list): Lista de tipos de riesgo (ej: ['alcance', 'costo'])
+            probabilidad (int): Nivel de probabilidad (1-5)
+
+        Returns:
+            str: Estrategias de mitigación formateadas para mostrar
+        """
+        # Normalizar el tipo de riesgo/afectación a clave del diccionario
+        if len(riesgo_afectacion) == 1:
+            clave_riesgo = riesgo_afectacion[0]
+        else:
+            # Convertir lista a clave ordenada (ej: ['alcance', 'costo'] -> 'alcance/costo')
+            clave_riesgo = '/'.join(sorted(riesgo_afectacion))
+
+        # Obtener las estrategias para este tipo de riesgo
+        estrategias = self.estrategias_mitigacion.get(clave_riesgo, [])
+
+        if not estrategias:
+            return 'Mitigación no disponible'
+
+        # Determinar cantidad de estrategias según probabilidad
+        if probabilidad >= 4:  # Alta (4-5)
+            cantidad = 3
+        elif probabilidad == 3:  # Media (3)
+            cantidad = 2
+        else:  # Baja (1-2)
+            cantidad = 1
+
+        # Seleccionar las primeras N estrategias
+        mitigaciones_seleccionadas = estrategias[:cantidad]
+
+        # Formatear para mostrar con numeración
+        return '\n'.join([f"{i+1}. {estrategia}" for i, estrategia in enumerate(mitigaciones_seleccionadas)])
+
     def _generar_matriz_riesgos(self, clausulas_analizadas):
         """
         Generar matriz de riesgos basada en las cláusulas encontradas
@@ -495,13 +568,19 @@ class AnalizadorContratos:
             for i, clausula in enumerate(clausulas_del_tipo):
                 letra = chr(ord('a') + i)  # Convertir índice a letra (0->a, 1->b, etc.)
 
+                # Seleccionar mitigaciones basadas en riesgo/afectación y probabilidad
+                mitigacion = self._seleccionar_mitigaciones(
+                    info_mapeo['riesgo_afectacion'],
+                    info_mapeo['probabilidad']
+                )
+
                 matriz_riesgos.append({
                     'id': f"{info_mapeo['id']}.{letra}",
                     'categoria': clasificacion,
                     'probabilidad': info_mapeo['probabilidad'],
                     'impacto': clausula.get('nivel_riesgo', 'desconocido'),
                     'riesgo_afectacion': info_mapeo['riesgo_afectacion'],
-                    'mitigacion': '',  # Pendiente como solicitaste
+                    'mitigacion': mitigacion,  # Ahora generado dinámicamente
                     'responsable': ''  # Campo editable vacío
                 })
 
