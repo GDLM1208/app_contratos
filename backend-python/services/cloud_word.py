@@ -10,31 +10,39 @@ from collections import Counter, defaultdict
 
 # Stopwords en español para filtrar palabras vacías
 SPANISH_STOPWORDS = {
-    'el', 'la', 'de', 'que', 'y', 'a', 'en', 'un', 'ser', 'se', 'no', 'haber',
-    'por', 'con', 'su', 'para', 'es', 'o', 'este', 'sí', 'porque', 'esta',
-    'son', 'entre', 'está', 'cuando', 'muy', 'sin', 'sobre', 'ser', 'tiene',
-    'también', 'me', 'hasta', 'hay', 'donde', 'han', 'quien', 'están', 'estado',
-    'desde', 'todo', 'nos', 'durante', 'estados', 'todos', 'uno', 'les', 'ni',
-    'contra', 'otros', 'fueron', 'ese', 'eso', 'estas', 'estaba', 'estamos',
-    'algunas', 'algo', 'nosotros', 'mi', 'mío', 'tú', 'te', 'ti', 'tu', 'tus',
-    'ellos', 'esas', 'esos', 'nuestra', 'nuestro', 'vuestra', 'vuestro', 'os',
-    'mía', 'mías', 'míos', 'tuya', 'tuyo', 'tuyos', 'tuyas', 'suya', 'suyo',
-    'suyos', 'suyas', 'nuestra', 'nuestras', 'nuestro', 'nuestros', 'vosotras',
-    'vosotros', 'vuestra', 'vuestras', 'vuestro', 'vuestros', 'esa', 'eso',
-    'hemos', 'habían', 'habías', 'habíamos', 'habían', 'habrá', 'habrán',
-    'habría', 'habrían', 'haya', 'hayan', 'hayamos', 'hayáis', 'había',
-    'habré', 'habremos', 'habréis', 'habrá', 'habrán', 'habría', 'habríamos',
-    'habríais', 'habrían', 'haya', 'hayas', 'hayamos', 'hayáis', 'hayan',
-    'habi', 'habías', 'habíamos', 'habíais', 'habían', 'he', 'has', 'hemos',
-    'habéis', 'han', 'haya', 'hayas', 'hayamos', 'hayáis', 'hayan', 'había',
-    'habías', 'habíamos', 'habíais', 'habían', 'habrá', 'habrás', 'habremos',
-    'habréis', 'habrán', 'habría', 'habrías', 'habríamos', 'habríais', 'habrían',
-    'haya', 'hayas', 'hayamos', 'hayáis', 'hayan', 'dé', 'des', 'demos', 'deis',
-    'den', 'daba', 'dabas', 'dábamos', 'dabais', 'daban', 'daré', 'darás',
-    'daremos', 'daréis', 'darán', 'daría', 'darías', 'daríamos', 'daríais',
-    'darían', 'dé', 'des', 'demos', 'deis', 'den', 'daba', 'dabas', 'dábamos',
-    'dabais', 'daban', 'daré', 'darás', 'daremos', 'daréis', 'darán', 'daría',
-    'darías', 'daríamos', 'daríais', 'darían', 'dé', 'des', 'demos', 'deis', 'den'
+    # Artículos y preposiciones
+    'el', 'la', 'de', 'que', 'y', 'a', 'en', 'un', 'una', 'unos', 'unas',
+    'por', 'con', 'su', 'para', 'es', 'o', 'u', 'este', 'sí', 'porque', 'esta',
+    'esa', 'ese', 'eso', 'hasta', 'hacia', 'ante', 'sobre', 'bajo', 'entre',
+    'desde', 'durante', 'mediante', 'sin', 'sino', 'al', 'del', 'lo', 'le', 'les',
+
+    # Verbos auxiliares y conjugaciones
+    'ser', 'se', 'no', 'haber', 'son', 'está', 'están', 'estado', 'estaba', 'estamos',
+    'he', 'has', 'ha', 'hemos', 'habéis', 'han', 'haya', 'hayas', 'hayamos', 'hayáis', 'hayan',
+    'había', 'habías', 'habíamos', 'habíais', 'habían', 'habrá', 'habrás', 'habremos', 'habréis', 'habrán',
+    'habría', 'habrías', 'habríamos', 'habríais', 'habrían', 'heme', 'hemos', 'habré',
+    'estoy', 'estás', 'estamos', 'estáis', 'estén', 'esté', 'estés', 'estemos', 'estéis',
+
+    # Pronombres
+    'yo', 'tú', 'él', 'ella', 'nosotros', 'nosotras', 'vosotros', 'vosotras', 'ellos', 'ellas',
+    'me', 'te', 'nos', 'os', 'mi', 'mío', 'mía', 'míos', 'mías', 'tu', 'tuyo', 'tuya', 'tuyos', 'tuyas',
+    'su', 'suyo', 'suya', 'suyos', 'suyas', 'nuestra', 'nuestro', 'nuestras', 'nuestros',
+    'vuestra', 'vuestro', 'vuestras', 'vuestros', 'ti', 'sí', 'mismo', 'misma', 'mismos', 'mismas',
+
+    # Adverbios y otros
+    'muy', 'también', 'tampoco', 'solo', 'solamente', 'apenas', 'sólo', 'ya', 'aún', 'aun',
+    'cuando', 'donde', 'cómo', 'como', 'qué', 'quien', 'quién', 'cuál', 'cuáles', 'cuándo', 'cuánto', 'cuántos',
+    'algún', 'alguno', 'alguna', 'algunos', 'algunas', 'algo', 'nada', 'ningún', 'ninguno', 'ninguna',
+    'tal', 'tanto', 'tanta', 'tantos', 'tantas', 'todo', 'toda', 'todos', 'todas',
+    'otro', 'otra', 'otros', 'otras', 'mismo', 'misma', 'mismos', 'mismas',
+    'ni', 'contra', 'mediante', 'fue', 'fuese', 'fueron', 'fuesen', 'fuera', 'fueras', 'fuéramos', 'fuerais', 'fueran',
+    'fuesen', 'hay', 'habría', 'hayamos', 'hayáis', 'dé', 'des', 'demos', 'deis', 'den',
+    'los', 'las', 'uno', 'tiene', 'daba', 'dabas', 'dábamos', 'dabais', 'daban', 'daré', 'darás',
+    'daremos', 'daréis', 'darán', 'daría', 'darías', 'daríamos', 'daríais', 'darían',
+
+    # Caracteres individuales y fragmentos de OCR erróneo
+    'q', 'c', 'sl', 'a', 'e', 'i', 'o', 'u', 'b', 'd', 'h', 'j', 'k', 'l', 'p', 'r', 's', 't', 'v', 'x', 'z',
+    'n', 'm', 'f', 'g', 'w', 'y',
 }
 
 
@@ -81,16 +89,20 @@ def _filter_stopwords(phrase: str) -> str:
     IMPORTANTE: Solo filtra stopwords cuando la frase es muy corta (1-2 palabras).
     Para frases con múltiples palabras, las mantiene intactas para preservar etiquetas
     como 'plazo de reclamo', 'resolución de disputas', etc.
+
+    Pero SIEMPRE rechaza palabras individuales < 3 caracteres (fragmentos OCR).
     """
     words = phrase.split()
 
     # Si la frase tiene 3+ palabras, asumimos que es una etiqueta definida y no la filtramos
     # Esto preserva etiquetas como "plazo de reclamo", "resolución de disputas"
     if len(words) >= 3:
-        return phrase
+        # Pero aún así filtrar palabras muy cortas dentro de la frase
+        filtered = [w for w in words if len(w) >= 3 and not _is_stopword(w)]
+        return ' '.join(filtered).strip()
 
-    # Para frases cortas (1-2 palabras), filtrar stopwords
-    filtered = [w for w in words if not _is_stopword(w)]
+    # Para frases cortas (1-2 palabras), filtrar stopwords Y palabras muy cortas
+    filtered = [w for w in words if len(w) >= 3 and not _is_stopword(w)]
     return ' '.join(filtered).strip()
 
 
@@ -133,19 +145,22 @@ def extract_candidate_phrases(text: str, max_ngram: int = 3) -> List[str]:
             pass
 
     # n-grams fallback/augmentation
-    tokens = [t for t in re.findall(r"\w+", norm) if len(t) > 0]
+    tokens = [t for t in re.findall(r"\w+", norm) if len(t) >= 3]  # Filtrar tokens < 3 caracteres desde aquí
     L = len(tokens)
     for n in range(1, min(max_ngram, 5) + 1):
         for i in range(0, max(0, L - n + 1)):
             gram = " ".join(tokens[i:i + n])
-            # filter stop-ish short tokens
-            if len(gram) > 0:
+            # Filtrar: rechazar si tiene palabras muy cortas o es solo stopword
+            if len(gram) >= 3:  # Mínimo 3 caracteres totales
                 candidates.append(gram)
 
-    # deduplicate preserving order
+    # deduplicate preserving order Y filtrar candidatos muy cortos
     seen = set()
     out = []
     for c in candidates:
+        # Rechazar candidatos que sean stopwords o muy cortos
+        if len(c) < 3 or _is_stopword(c):
+            continue
         if c in seen:
             continue
         seen.add(c)
