@@ -426,7 +426,7 @@ def match_phrases_for_clause(
         if score >= min_score:
             # VALIDACIÓN ADICIONAL: Solo incluir si la frase realmente está en alguna categoría
             # Usar un umbral más estricto para la validación final
-            if _phrase_exists_in_categories(phrase, category_phrases, similarity_threshold=0.85):
+            if _phrase_exists_in_categories(phrase, category_phrases, similarity_threshold=0.75):
                 global_hits.append((phrase, score, method))
             else:
                 print(f"🚫 Etiqueta rechazada: '{phrase}' (score: {score:.3f}) - No existe en categorías")

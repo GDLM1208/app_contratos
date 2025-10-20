@@ -2,11 +2,22 @@ import os
 import re
 import torch
 import json
+import unicodedata
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from collections import Counter, defaultdict
 from functools import lru_cache
 from .filtrado_clasulas import FiltradorClausulasConstructor
 from .cloud_word import match_phrases_for_clause, build_wordcloud_payload_from_clauses
+
+
+def _normalizar_etiqueta(texto):
+    """Normaliza etiquetas para comparación: elimina acentos, convierte a minúsculas."""
+    texto = texto.lower()
+    # Remover acentos
+    texto = unicodedata.normalize('NFKD', texto)
+    texto = ''.join([c for c in texto if not unicodedata.combining(c)])
+    return texto
+
 
 class AnalizadorContratos:
     _instance = None
@@ -18,23 +29,23 @@ class AnalizadorContratos:
         "fast": {
             "max_ngram": 3,
             "use_embeddings": False,
-            "top_n_phrases": 3,
+            "top_n_phrases": 2,  # Cambiar de 3 a 2 etiquetas por cláusula
             "min_confidence": 0.95,
-            "min_score": 0.5  # Aumentado para ser más estricto
+            "min_score": 0.5
         },
         "balanced": {
             "max_ngram": 3,
             "use_embeddings": True,
-            "top_n_phrases": 3,
-            "min_confidence": 0.5,
-            "min_score": 0.4  # Aumentado para ser más estricto
+            "top_n_phrases": 2,  # Cambiar de 3 a 2 etiquetas por cláusula
+            "min_confidence": 0.95,
+            "min_score": 0.4
         },
         "detailed": {
             "max_ngram": 4,
             "use_embeddings": True,
-            "top_n_phrases": 5,
+            "top_n_phrases": 3,  # Cambiar de 5 a 3 etiquetas por cláusula
             "min_confidence": 0.3,
-            "min_score": 0.3  # Aumentado para ser más estricto
+            "min_score": 0.3
         }
     }
 
@@ -60,31 +71,38 @@ class AnalizadorContratos:
 
         # Mapeo entre clasificaciones del modelo y categorías de etiquetas
         self.mapeo_clasificacion_categoria = {
-            'Clausula de pago': 'Clausula de pago',
-            'Clausula de cambios': 'Clausula de cambios',
-            'Clausula de penalidades': 'Clausula de penalidades',
-            'Clausula de terminacion': 'Clausula de terminacion',
-            'Clausula de resolucion de disputas': 'Clausula de resolucion de disputas',
-            'Clausula de indemnizacion': 'Clausula de indemnizacion',
+            # Nombres canonicales (minúsculas, sin acentos, completos)
+            'clausula de pago': 'Clausula de pago',
+            'clausula de cambios': 'Clausula de cambios',
+            'clausula de penalidades': 'Clausula de penalidades',
+            'clausula de terminacion': 'Clausula de terminacion',
+            'clausula de resolucion de disputas': 'Clausula de resolucion de disputas',
+            'clausula de indemnizacion': 'Clausula de indemnizacion',
             'clausula de plazos de reclamo': 'clausula de plazos de reclamo',
             'clausula de seguridad y salud': 'clausula de seguridad y salud',
             'clausula de funciones y responsabilidades': 'clausula de funciones y responsabilidades',
             'clausula de procedimientos': 'clausula de procedimientos',
             'clausula legal o de referencia normativa': 'clausula legal o de referencia normativa',
             'clausula temporal': 'clausula temporal',
-            # Agregar mapeos alternativos en caso de variaciones
-            'Pago': 'Clausula de pago',
-            'Cambios': 'Clausula de cambios',
-            'Penalidades': 'Clausula de penalidades',
-            'Terminación': 'Clausula de terminacion',
-            'Resolución de Disputas': 'Clausula de resolucion de disputas',
-            'Indemnización': 'Clausula de indemnizacion',
-            'Plazos de Reclamo': 'clausula de plazos de reclamo',
-            'Seguridad y Salud': 'clausula de seguridad y salud',
-            'Funciones y Responsabilidades (RNR)': 'clausula de funciones y responsabilidades',
-            'Procedimientos': 'clausula de procedimientos',
-            'Legal o Referencia Normativa': 'clausula legal o de referencia normativa',
-            'Temporal': 'clausula temporal'
+
+            # Variaciones con acentos (del modelo)
+            'clausula de terminacion': 'Clausula de terminacion',
+            'clausula de resolucion de disputas': 'Clausula de resolucion de disputas',
+            'clausula de indemnizacion': 'Clausula de indemnizacion',
+
+            # Variaciones alternativas (puede devolver con mayúsculas)
+            'pago': 'Clausula de pago',
+            'cambios': 'Clausula de cambios',
+            'penalidades': 'Clausula de penalidades',
+            'terminacion': 'Clausula de terminacion',
+            'resolucion de disputas': 'Clausula de resolucion de disputas',
+            'indemnizacion': 'Clausula de indemnizacion',
+            'plazos de reclamo': 'clausula de plazos de reclamo',
+            'seguridad y salud': 'clausula de seguridad y salud',
+            'funciones y responsabilidades': 'clausula de funciones y responsabilidades',
+            'procedimientos': 'clausula de procedimientos',
+            'legal o referencia normativa': 'clausula legal o de referencia normativa',
+            'temporal': 'clausula temporal',
         }
 
         # Definir qué etiquetas representan riesgos (ajusta según tu modelo)
@@ -221,18 +239,33 @@ class AnalizadorContratos:
         """
         Obtener las frases de etiquetas específicas para una clasificación dada.
 
+        Busca usando normalización (sin acentos, minúsculas) para manejar variaciones del modelo.
+
         Args:
             clasificacion (str): La clasificación obtenida del modelo
 
         Returns:
             dict: Diccionario con solo la categoría correspondiente a la clasificación
         """
-        # Mapear la clasificación a la categoría de etiquetas
+        # Buscar primero directamente
         categoria_objetivo = self.mapeo_clasificacion_categoria.get(clasificacion)
+
+        # Si no encuentra, buscar normalizando
+        if not categoria_objetivo:
+            clasificacion_norm = _normalizar_etiqueta(clasificacion)
+            categoria_objetivo = self.mapeo_clasificacion_categoria.get(clasificacion_norm)
+
+        # Si aún no encuentra, buscar en toda la lista normalizando todas las claves
+        if not categoria_objetivo:
+            clasificacion_norm = _normalizar_etiqueta(clasificacion)
+            for clave_original, valor in self.mapeo_clasificacion_categoria.items():
+                if _normalizar_etiqueta(clave_original) == clasificacion_norm:
+                    categoria_objetivo = valor
+                    break
 
         if not categoria_objetivo:
             print(f"⚠️ No se encontró mapeo para clasificación: '{clasificacion}'")
-            print(f"Mapeos disponibles: {list(self.mapeo_clasificacion_categoria.keys())}")
+            print(f"   (normalizado: '{_normalizar_etiqueta(clasificacion)}')")
             return {}
 
         if categoria_objetivo not in self.category_phrases:
@@ -242,6 +275,30 @@ class AnalizadorContratos:
 
         # Retornar solo las frases de la categoría específica
         return {categoria_objetivo: self.category_phrases[categoria_objetivo]}
+
+    def _buscar_en_diccionario(self, clave, diccionario):
+        """
+        Busca una clave en un diccionario usando normalización (sin acentos, minúsculas).
+        Útil para manejar variaciones en nombres de etiquetas del modelo.
+
+        Args:
+            clave: La clave a buscar
+            diccionario: El diccionario en el que buscar
+
+        Returns:
+            El valor si se encuentra, None en caso contrario
+        """
+        # Búsqueda directa
+        if clave in diccionario:
+            return diccionario[clave]
+
+        # Búsqueda normalizando
+        clave_norm = _normalizar_etiqueta(clave)
+        for dict_key, dict_value in diccionario.items():
+            if _normalizar_etiqueta(dict_key) == clave_norm:
+                return dict_value
+
+        return None
 
     def _resolve_model_path(self, model_path: str) -> str:
         """
@@ -491,7 +548,7 @@ class AnalizadorContratos:
             'probabilidades': {self.id2label[i]: prob.item() for i, prob in enumerate(probs[0])}
         }
 
-    def analizar_contrato_completo(self, texto_contrato, max_tokens_por_clausula=512, modo="fast"):
+    def analizar_contrato_completo(self, texto_contrato, max_tokens_por_clausula=512, modo="balanced"):
         """
         Analizar todo el contrato y generar reporte de riesgos
 
@@ -533,29 +590,26 @@ class AnalizadorContratos:
             if clasificacion['confianza'] < config['min_confidence']:
                 continue
 
-            # Generar matched_phrases SOLO para la categoría clasificada
+            # Generar matched_phrases buscando en TODAS las categorías
+            # Esto permite encontrar múltiples etiquetas relevantes, no solo de la categoría clasificada
             matched_phrases = []
             if hasattr(self, 'category_phrases') and self.category_phrases:
                 try:
-                    # Obtener solo las etiquetas de la categoría específica
-                    category_phrases_filtered = self.get_category_phrases_for_classification(clasificacion['etiqueta'])
+                    # Usar TODAS las categorías para buscar etiquetas
+                    # Esto permite encontrar múltiples perspectivas de la cláusula
+                    matched_phrases = match_phrases_for_clause(
+                        texto_clausula,
+                        self.category_phrases,  # ← TODAS las categorías, no solo la clasificada
+                        top_n=config['top_n_phrases'],
+                        min_score=config['min_score'],
+                        max_ngram=config['max_ngram'],
+                        use_embeddings=config['use_embeddings']
+                    )
 
-                    if category_phrases_filtered:
-                        matched_phrases = match_phrases_for_clause(
-                            texto_clausula,
-                            category_phrases_filtered,
-                            top_n=config['top_n_phrases'],
-                            min_score=config['min_score'],
-                            max_ngram=config['max_ngram'],
-                            use_embeddings=config['use_embeddings']
-                        )
-
-                        if matched_phrases:
-                            print(f"   ✅ Etiquetas encontradas: {[mp['phrase'] for mp in matched_phrases]}")
-                        else:
-                            print(f"   ❌ No se encontraron etiquetas válidas")
+                    if matched_phrases:
+                        print(f"   ✅ Etiquetas encontradas: {[mp['phrase'] for mp in matched_phrases]}")
                     else:
-                        print(f"⚠️ No se encontraron etiquetas para clasificación: {clasificacion['etiqueta']}")
+                        print(f"   ❌ No se encontraron etiquetas válidas")
 
                 except Exception as e:
                     print(f"⚠️ Error generando matched_phrases para cláusula {i}: {e}")
@@ -573,8 +627,9 @@ class AnalizadorContratos:
 
             # Identificar nivel de riesgo
             etiqueta = clasificacion['etiqueta']
-            if etiqueta in self.etiquetas_riesgo:
-                nivel_riesgo = self.etiquetas_riesgo[etiqueta]
+            nivel_riesgo = self._buscar_en_diccionario(etiqueta, self.etiquetas_riesgo)
+
+            if nivel_riesgo:
                 resultado_clausula['nivel_riesgo'] = nivel_riesgo
                 riesgos_encontrados[nivel_riesgo].append(resultado_clausula)
             else:
@@ -693,8 +748,8 @@ class AnalizadorContratos:
         matriz_riesgos = []
 
         for clasificacion, clausulas_del_tipo in clausulas_por_tipo.items():
-            # Obtener información del mapeo
-            info_mapeo = self.matriz_riesgos_mapeo.get(clasificacion, {})
+            # Obtener información del mapeo usando búsqueda normalizada
+            info_mapeo = self._buscar_en_diccionario(clasificacion, self.matriz_riesgos_mapeo) or {}
 
             if not info_mapeo:
                 print(f"⚠️ No se encontró mapeo para clasificación: {clasificacion}")
